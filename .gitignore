@@ -26,3 +26,6 @@ cloudflare/control-plane/worker-configuration.d.ts
 .claude/worktrees/
 .vercel/
 .pi/
+
+# OMC session/agent state — local tooling, never part of the product
+.omc/
