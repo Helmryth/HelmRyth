@@ -41,20 +41,21 @@ replies, real containers, real connectors. Nothing is mocked or re-enacted. Some
 back up to 1.2x to trim dead air while a model was thinking; the token counts, dollar amounts and
 error states on screen are the ones the app actually produced.
 
-> Each poster below links to its film. Click to play.
+> **Every loop below plays by itself.** Each one is the twelve seconds where its feature actually
+> happens; the full film sits one click underneath.
 >
-> <sub>Once this repo is pushed, drag the files from `docs/media/` into a GitHub issue and swap the
-> resulting `user-attachments` URLs into `<video>` tags if you want them playing inline on the page —
-> GitHub strips `<video>` when the `src` is a repo-relative path.</sub>
+> <sub>GitHub strips `<video>` when the `src` is a repo-relative path, and will not autoplay a video
+> even when hosted on its own CDN — an animated image is the only thing that plays inline unprompted,
+> so that is what the loops are.</sub>
 
 ### 01 · From zero to a real answer
 
 Cold profile to a working operator: identity, the live engine inventory, your first run — and a
 transcript that keeps its own record, with token and cost accounting in the header.
 
-[![Watch the film](docs/media/01-first-run.png)](docs/media/01-first-run.mp4)
+<img src="docs/media/01-first-run.gif" alt="An operator answers a direction live, with token count and cost in the header" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/01-first-run.mp4">01-first-run.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/01-first-run.mp4"><b>watch the full film</b></a> · <a href="docs/media/01-first-run.png">poster</a></sub>
 
 > **What to watch for:** the setup step titled *Runtime inventory — choose how work moves* is not a
 > configuration form. It is a live scan of the CLIs already installed on the machine, with their real
@@ -65,18 +66,18 @@ transcript that keeps its own record, with token and cost accounting in the head
 A roster of standing roles. Each carries a sigil, a remit, its own engine, and its own workstreams.
 Rename in place, archive without losing the record, restore it whole.
 
-[![Watch the film](docs/media/02-operators.png)](docs/media/02-operators.mp4)
+<img src="docs/media/02-operators.gif" alt="Archiving an operator and restoring it with its workstream intact" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/02-operators.mp4">02-operators.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/02-operators.mp4"><b>watch the full film</b></a> · <a href="docs/media/02-operators.png">poster</a></sub>
 
 ### 03 · Crews that actually coordinate
 
 Assemble a team, give it one brief, and choose how work routes through it — the whole crew, a lead
 operator, or only the operators you name. Then stop a run mid-sentence and watch it actually stop.
 
-[![Watch the film](docs/media/03-crews.png)](docs/media/03-crews.mp4)
+<img src="docs/media/03-crews.gif" alt="A crew running under one brief with lead-operator routing" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/03-crews.mp4">03-crews.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/03-crews.mp4"><b>watch the full film</b></a> · <a href="docs/media/03-crews.png">poster</a></sub>
 
 ### 04 · Nothing consequential happens unasked
 
@@ -84,9 +85,9 @@ The one to watch if you only watch one. An operator wants to run a shell command
 to. A gate card appears in the transcript naming the **exact command**, the **consequence in plain
 English**, and **who asked**. You answer. The answer is written to a decision ledger.
 
-[![Watch the film](docs/media/04-gates.png)](docs/media/04-gates.mp4)
+<img src="docs/media/04-gates.gif" alt="A gate card naming the exact shell command, its consequence, and who asked" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/04-gates.mp4">04-gates.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/04-gates.mp4"><b>watch the full film</b></a> · <a href="docs/media/04-gates.png">poster</a></sub>
 
 > **Verified, not staged:** the decision in that film is a real row —
 > `Forge · Bash · mkdir -p /tmp/helmryth-demo && printf 'READY' > …` — readable at
@@ -98,9 +99,9 @@ An isolated container per operator, or one shared desktop used in sequence. Watc
 live, and take the controls back whenever you want — the control lease means you and the operator
 are never fighting over the mouse.
 
-[![Watch the film](docs/media/05-workbench.png)](docs/media/05-workbench.mp4)
+<img src="docs/media/05-workbench.gif" alt="Isolated Workbench status and per-operator allocation" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/05-workbench.mp4">05-workbench.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/05-workbench.mp4"><b>watch the full film</b></a> · <a href="docs/media/05-workbench.png">poster</a></sub>
 
 ### 06 · Hundreds of real capabilities
 
@@ -110,18 +111,18 @@ set ships as a fallback). Connecting one is an explicit, named act, and MCP cred
 to a `0600` temp file and passed by path — anything on argv is readable by any local process
 through `ps` for the life of the turn.
 
-[![Watch the film](docs/media/06-capabilities.png)](docs/media/06-capabilities.mp4)
+<img src="docs/media/06-capabilities.gif" alt="The live connector catalog, fetched from the capability broker" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/06-capabilities.mp4">06-capabilities.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/06-capabilities.mp4"><b>watch the full film</b></a> · <a href="docs/media/06-capabilities.png">poster</a></sub>
 
 ### 07 · Work that starts without you
 
 A cadence is a schedule that starts a fresh run with the operator's own model, capabilities, gates
 and workbench. A webhook is the same thing triggered by an event instead of a clock.
 
-[![Watch the film](docs/media/07-cadences.png)](docs/media/07-cadences.mp4)
+<img src="docs/media/07-cadences.gif" alt="The cadence editor scheduling a recurring run" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/07-cadences.mp4">07-cadences.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/07-cadences.mp4"><b>watch the full film</b></a> · <a href="docs/media/07-cadences.png">poster</a></sub>
 
 ### 08 · Hand someone a whole team
 
@@ -129,26 +130,26 @@ Export the roster you have as one portable package, or load a complete crew from
 have it arrive whole. Every import is a transaction, so you can take the entire thing back in one
 click.
 
-[![Watch the film](docs/media/08-packages.png)](docs/media/08-packages.mp4)
+<img src="docs/media/08-packages.gif" alt="Exporting the roster as one portable package" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/08-packages.mp4">08-packages.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/08-packages.mp4"><b>watch the full film</b></a> · <a href="docs/media/08-packages.png">poster</a></sub>
 
 ### 09 · See the whole operation
 
 Every operator, every crew, every handoff between them, and the context they share — in one frame.
 
-[![Watch the film](docs/media/09-opsmap.png)](docs/media/09-opsmap.mp4)
+<img src="docs/media/09-opsmap.gif" alt="The operations map showing operators, crews and shared context" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/09-opsmap.mp4">09-opsmap.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/09-opsmap.mp4"><b>watch the full film</b></a> · <a href="docs/media/09-opsmap.png">poster</a></sub>
 
 ### 10 · Keyboard-first, private by construction
 
 `⌘K` from anywhere. The entire app without a mouse. Keys that are write-only by design — the app can
 tell you a key is configured, and can never show it to you again. Telemetry off by default.
 
-[![Watch the film](docs/media/10-keyboard.png)](docs/media/10-keyboard.mp4)
+<img src="docs/media/10-keyboard.gif" alt="The command palette opened with a keyboard chord" width="100%">
 
-<sub>▶︎ Click to play · <a href="docs/media/10-keyboard.mp4">10-keyboard.mp4</a></sub>
+<sub>▶︎ Loop plays automatically · <a href="docs/media/10-keyboard.mp4"><b>watch the full film</b></a> · <a href="docs/media/10-keyboard.png">poster</a></sub>
 
 ---
 
