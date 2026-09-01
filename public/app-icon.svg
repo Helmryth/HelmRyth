@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Helmryth</title>
+  <desc id="desc">A warm light app tile carrying the Helmryth braided signal mark in vermilion and petrol.</desc>
+  <g>
+    <path d="M190 100H834L924 190V834L834 924H190L100 834V190Z" fill="#F6F1E7" stroke="#D6CAB9" stroke-width="10" />
+    <path d="M174 512H850" fill="none" stroke="#167A78" stroke-width="14" />
+    <g transform="translate(204.8 185.6) scale(19.2)">
+      <path d="M5 5.5 8 3h5v8.25l6-3.5V3h5l3 2.5v21L24 29h-5v-8.35l-6 3.5V29H8l-3-2.5v-21Z" fill="#C44F36" />
+      <path d="m13 14.6 6-3.5v5.15l-6 3.5V14.6Z" fill="#F6F1E7" />
+      <path d="M8.25 8.5H13M19 23.5h4.75" fill="none" stroke="#F6F1E7" stroke-width="1.5" stroke-linecap="square" />
+    </g>
+  </g>
+</svg>
