@@ -1,0 +1,375 @@
+@import "tailwindcss";
+@source not "../output";
+@source not "../apps/docs/.next";
+
+/* Helmryth carries one public identity. Legacy ids remain readable only so
+   older installs migrate cleanly into the same light-first surface. */
+@theme {
+  --animate-panel-in: panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pop-in: pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-caret: caret-blink 1s step-end infinite;
+  --animate-msg-in: msg-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  /* Defaults = Helmryth light. */
+  --color-app: oklch(0.974 0.012 83);
+  --color-panel: oklch(0.948 0.016 83);
+  --color-raised: oklch(0.997 0.004 83);
+  --color-raised-hover: oklch(0.954 0.022 79);
+  --color-card: oklch(0.988 0.008 83);
+  --color-inset: oklch(0.933 0.018 83);
+  --color-control: oklch(0.958 0.017 83);
+  --color-hairline: oklch(0.835 0.02 83);
+  --color-ink: oklch(0.245 0.025 255);
+  --color-ink-secondary: oklch(0.47 0.023 255);
+  --color-accent: oklch(0.565 0.185 32);
+  --color-accent-border: oklch(0.505 0.178 32);
+  --color-focus: oklch(0.5 0.105 195);
+  --color-accent-text: oklch(0.45 0.14 32);
+  --color-bubble-user: oklch(0.925 0.045 32);
+  --color-success: oklch(0.535 0.12 150);
+  /* Body-size success text needs 4.5:1; the badge weight above measures 4.0:1
+     on the tinted pill. Mirrors --color-accent-text. */
+  --color-success-text: oklch(0.45 0.12 150);
+  --color-danger: oklch(0.545 0.19 24);
+  --color-warning: oklch(0.49 0.115 75);
+  --color-signal: oklch(0.5 0.105 195);
+
+  --font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next",
+    "Segoe UI", system-ui, sans-serif;
+  --font-display: "Geologica Variable", "Geologica", "Atkinson Hyperlegible Next Variable",
+    "Segoe UI", system-ui, sans-serif;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+}
+
+:root {
+  --color-accent-ink: oklch(0.992 0.004 83);
+  --color-danger-ink: oklch(0.992 0.004 83);
+  --color-scrollbar: oklch(0.75 0.017 83);
+  --color-sigil-line: oklch(0.47 0.023 255);
+  --color-mark-cutout: oklch(0.974 0.012 83);
+  --app-shadow: 0 22px 48px rgb(51 34 20 / 0.09);
+}
+
+[data-skin="helmryth-light"] {
+  --color-app: oklch(0.974 0.012 83);
+  --color-panel: oklch(0.948 0.016 83);
+  --color-raised: oklch(0.997 0.004 83);
+  --color-raised-hover: oklch(0.954 0.022 79);
+  --color-card: oklch(0.988 0.008 83);
+  --color-inset: oklch(0.933 0.018 83);
+  --color-control: oklch(0.958 0.017 83);
+  --color-hairline: oklch(0.82 0.02 83);
+  --color-ink: oklch(0.245 0.025 255);
+  --color-ink-secondary: oklch(0.47 0.023 255);
+  --color-accent: oklch(0.565 0.185 32);
+  --color-accent-border: oklch(0.505 0.178 32);
+  --color-focus: oklch(0.5 0.105 195);
+  --color-accent-text: oklch(0.45 0.14 32);
+  --color-bubble-user: oklch(0.925 0.045 32);
+  --color-success: oklch(0.535 0.12 150);
+  /* Body-size success text needs 4.5:1; the badge weight above measures 4.0:1
+     on the tinted pill. Mirrors --color-accent-text. */
+  --color-success-text: oklch(0.45 0.12 150);
+  --color-danger: oklch(0.545 0.19 24);
+  --color-warning: oklch(0.49 0.115 75);
+  --color-signal: oklch(0.5 0.105 195);
+  --font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next",
+    "Segoe UI", system-ui, sans-serif;
+  --font-display: "Geologica Variable", "Geologica", "Atkinson Hyperlegible Next Variable",
+    "Segoe UI", system-ui, sans-serif;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-app);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Keep focus visible after components clear the browser outline. These
+   unlayered rules outrank Tailwind utilities without needing !important. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Text fields sit in a bordered card (the composer pill especially), and a
+   flat ring used to read as a sharp rectangle inside that rounded chrome — so
+   the ring was removed entirely and fields fell back to focus:border-*. That
+   border moves from oklch-equivalent rgb(224,217,205) to rgb(202,195,182): a
+   1.25:1 change, which is not a visible focus indicator by any measure and
+   fails WCAG 2.4.7 for every text field in the app.
+   Keep the ring, and let it follow the field's own radius (outline has honoured
+   border-radius since Chrome 94 / Safari 16.4) with an offset so it sits
+   outside the chrome instead of cutting through it. Mouse clicks on a text
+   field do match :focus-visible — that is correct, and a visible ring there is
+   the accessible behaviour, not a bug. */
+:is(input, textarea, select):focus {
+  outline: none;
+}
+:is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 4px;
+}
+/* the thumb was inert — it never acknowledged the pointer */
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-raised-hover);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@keyframes panel-in {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes pop-in {
+  from { transform: scale(0.96) translateY(6px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+/* streaming caret: a true typing blink (step, not fade) */
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+/* new message settle-in: subtle, fast, GPU-only */
+@keyframes msg-in {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+/* sigil arrives at the tail */
+@keyframes turn-sigil-in {
+  from { opacity: 0; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes turn-sigil-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.88); }
+}
+/* the reply grows up from the sigil, staying on the left edge */
+@keyframes turn-answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.84);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.turn-sigil-in {
+  transform-origin: 18px 18px;
+  animation: turn-sigil-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.turn-sigil-out {
+  transform-origin: 18px 18px;
+  animation: turn-sigil-out 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.turn-answer {
+  transform-origin: 18px 100%;
+  animation: turn-answer-in 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* last line of text → sigil ≈ 5mm (bubble py-2.5 already contributes 10px) */
+.turn-sigil-tight {
+  margin-top: max(0px, calc(5mm - 10px));
+}
+/* "Thinking…" label sheen while the model reasons */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+@keyframes reduced-loader-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+.thinking-shimmer {
+  color: var(--color-ink-secondary);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.helmryth-sigil {
+  display: block;
+  overflow: visible;
+}
+
+.helmryth-sigil__carrier {
+  transform-origin: 60px 60px;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.helmryth-sigil__braid,
+.helmryth-sigil__pulse path,
+.helmryth-sigil__marker {
+  fill: none;
+  stroke: var(--sigil-line);
+  stroke-linecap: square;
+  stroke-width: 4.4;
+}
+
+.helmryth-sigil__braid--soft,
+.helmryth-sigil__marker--soft {
+  stroke: var(--sigil-line-soft);
+  stroke-width: 3;
+}
+
+.helmryth-sigil__node {
+  fill: var(--sigil-accent);
+}
+
+.helmryth-sigil[data-sigil-motion="idle"] .helmryth-sigil__carrier,
+.helmryth-sigil[data-sigil-motion="rest"] .helmryth-sigil__carrier {
+  animation: helmryth-sigil-float 3.2s ease-in-out infinite;
+}
+
+.helmryth-sigil[data-sigil-motion="thinking"] .helmryth-sigil__carrier,
+.helmryth-sigil[data-sigil-motion="listening"] .helmryth-sigil__carrier {
+  animation: helmryth-sigil-scan 2.4s ease-in-out infinite;
+}
+
+.helmryth-sigil[data-sigil-motion="working"] .helmryth-sigil__carrier,
+.helmryth-sigil[data-sigil-motion="arrive"] .helmryth-sigil__carrier {
+  animation: helmryth-sigil-pulse 1.35s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.helmryth-sigil[data-sigil-motion="alert"] .helmryth-sigil__carrier {
+  animation: helmryth-sigil-jitter 900ms ease-in-out infinite;
+}
+
+.helmryth-sigil--spin .helmryth-sigil__carrier {
+  animation: helmryth-sigil-spin 820ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.helmryth-sigil[data-sigil-blink="true"] .helmryth-sigil__pulse {
+  animation: helmryth-sigil-spark 480ms ease-out;
+}
+
+@keyframes helmryth-sigil-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+
+@keyframes helmryth-sigil-scan {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1px) rotate(-2deg); }
+}
+
+@keyframes helmryth-sigil-pulse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  42% { transform: translateY(-1px) scale(1.04); }
+  68% { transform: translateY(0.5px) scale(0.985); }
+}
+
+@keyframes helmryth-sigil-jitter {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 0.5px); }
+  40% { transform: translate(1px, -0.75px); }
+  60% { transform: translate(-0.6px, -0.5px); }
+  80% { transform: translate(0.9px, 0.7px); }
+}
+
+@keyframes helmryth-sigil-spark {
+  0% { opacity: 0.42; transform: scale(0.88); }
+  35% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes helmryth-sigil-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  45% { transform: rotate(148deg) scale(0.95); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-caret,
+  .animate-msg-in,
+  .animate-panel-in,
+  .animate-pop-in,
+  .animate-shimmer {
+    animation: none !important;
+  }
+  .helmryth-sigil__carrier,
+  .helmryth-sigil__pulse {
+    animation: none !important;
+    transform: none !important;
+  }
+  .thinking-shimmer { color: var(--color-ink-secondary); }
+  .turn-sigil-in, .turn-sigil-out, .turn-answer { animation: none; }
+  /* The drawer still moves, it just arrives instantly. */
+  aside { transition: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Reduced-motion busy state
+
+   `animation: none` on its own froze all 97 spinner call sites mid-rotation.
+   A lucide Loader2 at rest is a three-quarter arc stopped at an arbitrary
+   angle: it reads as a broken glyph, not as "still working", so a reader who
+   prefers reduced motion lost every piece of progress feedback in the app.
+   Reduced motion asks for no MOVEMENT, not for no feedback — so the arc is
+   swapped for a static, complete progress ring drawn on the icon's own box.
+   box-sizing keeps the ring inside the icon's declared width/height, so no
+   layout shifts between the two modes.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin { animation: none !important; }
+  svg.animate-spin {
+    box-sizing: border-box;
+    border: 2px solid currentColor;
+    border-radius: 9999px;
+  }
+  /* The frozen arc underneath is the meaningless part — the ring replaces it. */
+  svg.animate-spin > * {
+    display: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Filled accent / danger surfaces
+
+   Components hardcode `text-white` on these fills (~20 call sites). Rather
+   than edit twenty components, the ink is taken from a token here; `text-white`
+   and this rule have equal specificity, and this file is loaded after
+   Tailwind's utilities.
+   ───────────────────────────────────────────────────────────────────────── */
+.bg-accent {
+  color: var(--color-accent-ink);
+}
+.bg-danger {
+  color: var(--color-danger-ink);
+}
+
+/* Disabled buttons keep their own colors instead of relying on opacity alone. */
+button:disabled.bg-accent,
+button:disabled.bg-danger {
+  background-color: var(--color-raised-hover);
+  color: var(--color-ink-secondary);
+  opacity: 1;
+}
