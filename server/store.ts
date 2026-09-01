@@ -1,0 +1,1637 @@
+// Bot + thread persistence. bots.json holds bot records (including the
+// thread→instance binding and per-instance resume cursors — upstream's
+// ProviderSessionDirectory, recipe step 6: persist the binding from day
+// one). messages-<threadId>.json holds the folded transcript.
+import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
+import { join } from "node:path";
+import { z } from "zod";
+
+import { loadOrQuarantine, quarantineCorruptFile, writeFileAtomic } from "./atomic.ts";
+import { peerAllowKey } from "./peer-approval-key.ts";
+import { DATA_DIR, EVENTS_DIR, NATIVE_DIR } from "./config.ts";
+import * as mdb from "./message-db.ts";
+import { ensurePrivateDirectory, repairPrivateFile } from "./private-storage.ts";
+import { parseJson } from "./schema.ts";
+import { BotWorkspaceErasureManager } from "./bot-workspace-erasure.ts";
+import { newId, type CloudBackend, type ModelSelection, type ThreadId } from "./contracts.ts";
+import { pickOperatorName } from "./names.ts";
+import { redactSecretsInText } from "./redact.ts";
+import { botAvatarProfile, type BotAvatarCrop } from "../shared/bot-avatar.ts";
+import { transcriptAttachmentCandidates } from "./attachments.ts";
+import { purgeThreadTranscript } from "./thread-transcript.ts";
+import { ThreadErasureManager } from "./thread-erasure.ts";
+import type { RoutineRequestCardData } from "../shared/routine-request.ts";
+import type { RoutineRunCardData } from "../shared/routine-run.ts";
+
+export type SigilColor =
+  | "green"
+  | "blue"
+  | "red"
+  | "orange"
+  | "purple"
+  | "cyan"
+  | "pink"
+  | "yellow"
+  | "teal"
+  | "coral";
+
+/**
+ * The face a bot rests on, as one of the engine's state names. Kept as a plain
+ * string rather than a union: bots saved under the app's earlier ten-face
+ * vocabulary still carry those names, and the client resolves both on read.
+ */
+export type SigilExpression = string;
+
+export interface OptionCardData {
+  title: string;
+  subtitle: string;
+  /** Legacy provider approval detail retained on older persisted cards. */
+  summary?: string;
+  options: string[];
+  answered?: string;
+  dismissed?: boolean;
+  /** Present when this card is a live provider ask (approval/question). */
+  requestId?: string;
+  /** permission cards: the tool being requested, so the card can show what
+   * is actually being asked and offer "always allow this tool". */
+  tool?: string;
+  /** why this stopped despite auto mode (destructive-looking command) */
+  held?: string;
+  /** the narrow grant "always allow" remembers, e.g. "Bash:git" */
+  allowKey?: string;
+  /** Local actions never share remembered grants with cloud/tool approvals. */
+  approvalScope?: "local-computer";
+  /** A durable chat-created routine proposal. The scheduler only applies it
+   * after this card is explicitly confirmed by the user. */
+  routineRequest?: RoutineRequestCardData;
+}
+
+export interface ConnectorCardData {
+  /** Composio toolkit slug. It is validated server-side before every action. */
+  slug: string;
+  label: string;
+  description: string;
+  status: "required" | "authorizing" | "connected" | "failed";
+  /** Cards created by one agent request resume together after all connect. */
+  resumeKey: string;
+  error?: string;
+  dismissed?: boolean;
+  resumed?: boolean;
+}
+
+export interface SecretRequestCardData {
+  /** Fixed allowlisted credential id; never an arbitrary config path. */
+  target: import("../shared/credential-request.ts").CredentialTargetId;
+  label: string;
+  description: string;
+  placeholder: string;
+  helpUrl: string;
+  requestKey: string;
+  provided?: boolean;
+  dismissed?: boolean;
+  resumed?: boolean;
+  error?: string;
+}
+
+export interface Message {
+  id: string;
+  role: "bot" | "user";
+  kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run";
+  text?: string;
+  card?: OptionCardData;
+  connector?: ConnectorCardData;
+  secret?: SecretRequestCardData;
+  /** One idempotently updated status card in the conversation that created a
+   * routine. The actual provider turn remains in its isolated task. */
+  routineRun?: RoutineRunCardData;
+  /** activity messages: tool name + outcome. `spoken` is the same chip as
+   * a phrase a voice can read ("reading a file") — computed once here so
+   * call mode never has to re-derive it from the raw tool name, and absent
+   * for chips not worth interrupting the ear for. */
+  /** `setup` marks an error the user fixes by installing or configuring
+   * something — the UI offers setup instead of a retry that cannot work. */
+  tool?: { name: string; ok?: boolean; spoken?: string; setup?: boolean; runtimeError?: boolean };
+  /** user messages sent INTO a running turn (capabilities.queueing): the
+   * model saw it mid-turn, so the transcript marks it — a reader should
+   * know the reply above it may already account for this line */
+  steered?: boolean;
+  /** screen messages: a frame of the bot's computer (base64 image) */
+  png?: string;
+  mime?: string;
+  at: number;
+  /** the message this one follows; null = thread root. Edited messages
+   * share a parentId with the version they replace — that's a fork. */
+  parentId?: string | null;
+  /** Optional flat reply reference. Unlike parentId this never changes the
+   * conversation branch; it only quotes one earlier text message inline. */
+  replyToId?: string;
+  /** Stable client identity for at-most-once chat POST retries. */
+  sendId?: string;
+  /** group threads: which member said this (sender attribution). */
+  from?: { botId: string; name: string; color: string };
+  /** emoji reactions; by = "user" or a member botId. */
+  reactions?: Array<{ emoji: string; by: string }>;
+  /** comm chips: "Messaged @X" in the caller's chat, linking to the
+   * bot⇄bot channel where the exchange is mirrored. */
+  comm?: { groupId: string; withBotId: string; withName: string; withColor: string };
+  /** user messages sent while the bot was mid-turn, waiting in the
+   * steer-queue to auto-send on settle. Cleared when the drain consumes
+   * them; a true stranded by a restart is inert because the client only
+   * shows the affordance while the bot is busy. */
+  queued?: boolean;
+  /** steer-queue entry this drained user line came from. The client pending
+   * chip matches on this id, not on equal text. Absent on ordinary sends. */
+  queueId?: string;
+}
+
+export type GroupDefaultResponder =
+  | { kind: "member"; botId: string }
+  | { kind: "everyone" }
+  | { kind: "mentions" };
+
+/** One independent conversation inside a user-created channel. Channel
+ * membership and instructions stay on GroupRecord; transcript-bound state
+ * lives here so switching tasks never moves a pin or working directory into
+ * another provider context. */
+export interface GroupTaskRecord {
+  threadId: ThreadId;
+  title: string;
+  createdAt: number;
+  pinnedCwd?: string | null;
+  pinnedMessageId?: string;
+}
+
+/** A room: a shared thread where several bots + the user talk. Plain
+ * messages follow `defaultResponder`; explicit @mentions always override it.
+ * The bulletin is the room's shared instructions — every member's turn gets
+ * it as part of its system prompt. */
+export interface GroupRecord {
+  id: string;
+  /** The active task's thread. Direct-message channels remain single-threaded. */
+  threadId: ThreadId;
+  /** User-created channels have independent tasks, newest first. */
+  tasks?: GroupTaskRecord[];
+  name: string;
+  memberIds: string[];
+  defaultResponder: GroupDefaultResponder;
+  bulletin: string;
+  unread: boolean;
+  createdAt: number;
+  /** true for auto-created bot⇄bot channels (ask_bot exchanges live here;
+   * the user can open the channel and chip in) */
+  dm?: boolean;
+  /** transient: the member currently running a turn (never persisted) */
+  busyBotId?: string | null;
+  /** the room's shared desk: where member turns run their shell tools,
+   * overriding each member's own folder. The room pins its own copy on its
+   * first turn (pinnedCwd). Absent = each member's own default. */
+  cwd?: string;
+  /** Compatibility mirror of the active task's pinned folder. */
+  pinnedCwd?: string | null;
+  /** Compatibility mirror of the active task's pinned message. */
+  pinnedMessageId?: string;
+  /** sidebar section heading this room is filed under; shares the bots'
+   * namespace so one heading can hold a project's room and its people */
+  section?: string;
+  /** New user-created rooms start with setup pending. Null timestamps are
+   * intentional: records from before room setup has existed omit both keys
+   * and remain immediately usable. */
+  setupCompletedAt?: number | null;
+  setupSkippedAt?: number | null;
+}
+
+/** One task = one conversation with its own context.
+ *
+ * A bot used to be a single endless thread, which meant every job
+ * contaminated the next and the only way to get a clean slate was to
+ * clone the bot. A task is that clean slate: its own thread, its own
+ * transcript, and — the part that actually matters — its own provider
+ * session. Sharing resume cursors between tasks would resume the other
+ * task's session and quietly undo the whole thing. */
+export interface TaskRecord {
+  threadId: ThreadId;
+  title: string;
+  createdAt: number;
+  /** provider-native continuation per instance, for THIS task only */
+  resumeCursors: Record<string, string>;
+  /** which instance dispatched the most recent turn. A cursor alone can't
+   * say whether an engine's session is current — another engine may have
+   * taken turns since — so this is what decides an inline replay. Absent
+   * on tasks from before the field existed. */
+  lastInstanceId?: string;
+  /** what this task has spent: banked once per turn from turn.completed */
+  usage?: TaskUsage;
+  /** the folder this task's turns run in, pinned on its first turn from
+   * the bot's `cwd` at that moment. Pinned, not read live: Claude keeps
+   * sessions per project directory and Codex threads carry their cwd, so
+   * a folder that moved under a live session would break resume. `null`
+   * = pinned to the default (home); absent = not pinned yet. */
+  cwd?: string | null;
+}
+
+export interface TaskUsage {
+  input: number;
+  output: number;
+  /** The part of `input` the provider served from its prompt cache — context
+   * the model re-read rather than fresh text. Every turn resends the whole
+   * conversation plus the system prompt and tool schemas, so on a chatty
+   * thread this is most of `input`. Absent on records from older builds. */
+  cachedInput?: number;
+  /** null until any turn reports a cost — most engines never do. Records
+   * written by builds before cost existed lack the field; read as null. */
+  costUsd: number | null;
+  turns: number;
+}
+
+/** Everything the BOT authored is scrubbed of content-shaped secrets before
+ * it is stored: its reply text, a tool title (an ACP engine's title can be
+ * the whole command line), a permission card's summary. What the user typed
+ * is theirs and stays as typed. Stored, not just displayed: the transcript
+ * is replayed into every rebuild, and a leaked key would otherwise be
+ * permanent. */
+function redactBotAuthored(
+  message: Omit<Message, "id" | "at"> & { at?: number },
+): Omit<Message, "id" | "at"> & { at?: number } {
+  if (message.role !== "bot") return message;
+  const out = { ...message };
+  if (out.text !== undefined) out.text = redactSecretsInText(out.text);
+  if (out.tool?.name) out.tool = { ...out.tool, name: redactSecretsInText(out.tool.name) };
+  if (out.routineRun) {
+    const routineRun = { ...out.routineRun };
+    routineRun.routineName = redactSecretsInText(routineRun.routineName);
+    if (routineRun.summary) routineRun.summary = redactSecretsInText(routineRun.summary);
+    if (routineRun.error) routineRun.error = redactSecretsInText(routineRun.error);
+    out.routineRun = routineRun;
+  }
+  if (out.card) {
+    const card: OptionCardData = { ...out.card };
+    card.title = redactSecretsInText(card.title);
+    card.subtitle = redactSecretsInText(card.subtitle);
+    if (card.summary !== undefined) card.summary = redactSecretsInText(card.summary);
+    if (card.held !== undefined) card.held = redactSecretsInText(card.held);
+    // Routine definitions are executable bot-authored text stored behind the
+    // visible summary. Scrub the durable payload too so nesting it on a card
+    // cannot bypass the transcript's secret-redaction boundary.
+    if (card.routineRequest) {
+      const operation = card.routineRequest.operation;
+      card.routineRequest = {
+        ...card.routineRequest,
+        operation: operation.action === "create"
+          ? {
+              ...operation,
+              routine: {
+                ...operation.routine,
+                name: redactSecretsInText(operation.routine.name),
+                instructions: redactSecretsInText(operation.routine.instructions),
+              },
+            }
+          : operation.action === "update"
+            ? {
+                ...operation,
+                changes: redactRoutineRequestChanges(operation.changes),
+              }
+            : { ...operation },
+      };
+    }
+    out.card = card;
+  }
+  if (out.connector) {
+    out.connector = {
+      ...out.connector,
+      label: redactSecretsInText(out.connector.label),
+      description: redactSecretsInText(out.connector.description),
+      error: out.connector.error ? redactSecretsInText(out.connector.error) : undefined,
+    };
+  }
+  if (out.secret) {
+    out.secret = {
+      ...out.secret,
+      label: redactSecretsInText(out.secret.label),
+      description: redactSecretsInText(out.secret.description),
+      error: out.secret.error ? redactSecretsInText(out.secret.error) : undefined,
+    };
+  }
+  return out;
+}
+
+function redactRoutineRequestChanges(
+  changes: import("../shared/routine-request.ts").RoutineRequestChanges,
+): import("../shared/routine-request.ts").RoutineRequestChanges {
+  const redacted = { ...changes };
+  if (redacted.name !== undefined) redacted.name = redactSecretsInText(redacted.name);
+  if (redacted.instructions !== undefined) redacted.instructions = redactSecretsInText(redacted.instructions);
+  return redacted;
+}
+
+/** What changed, emitted by the store itself right after each write. The
+ * server maps these onto its SSE frames in ONE place, so no mutation path
+ * can persist without the app hearing about it — the two-write-paths bug
+ * (persist without emit → UI drifts; emit without persist → a restart
+ * loses what the user just watched) is closed by construction. Bot and
+ * group changes carry only the id: the wire shape (cursor stripping) is
+ * the caller's business. */
+export type BotActivity = "working" | "waiting-on-you" | "idle" | "no-signal" | "dead";
+/** The states in which the bot cannot take a new message. */
+export const ACTIVITY_BUSY: ReadonlySet<BotActivity> = new Set(["working", "waiting-on-you", "no-signal"]);
+
+export type StoreChange =
+  | { type: "message"; threadId: string; message: Message }
+  | { type: "message.patch"; threadId: string; message: Message }
+  | { type: "thread"; threadId: string; activeLeafId: string }
+  | { type: "thread.deleted"; threadId: string }
+  | { type: "bot"; botId: string }
+  | { type: "bot.deleted"; botId: string }
+  | { type: "group"; groupId: string }
+  | { type: "group.deleted"; groupId: string };
+
+/** The Store owns the destructive boundary; the erasure manager owns the
+ * private journal and restart recovery.  This synchronous hook is invoked
+ * before a single transcript byte is changed. */
+export interface ThreadDeletionLifecycle {
+  prepare(threadId: string, attachmentCandidates: readonly string[]): void;
+  prepareMany?(requests: ReadonlyArray<{ threadId: string; attachmentCandidates: readonly string[] }>): void;
+}
+
+/** Records the bot-workspace cleanup obligation before bots.json changes. */
+export interface BotWorkspaceDeletionLifecycle {
+  prepare(botId: string): void;
+}
+
+/** What a task is called before its first message names it. */
+export const UNTITLED_TASK = "Untitled run";
+const LEGACY_UNTITLED_TASK = "New task";
+
+/** A task's name, taken from the first thing you asked it to do. */
+export function titleFromMessage(text: string): string {
+  const line = text.trim().split("\n")[0]!.trim();
+  return line.length > 48 ? `${line.slice(0, 47)}…` : line || UNTITLED_TASK;
+}
+
+export interface BotRecord {
+  id: string;
+  /** the ACTIVE task's thread — everything that runs a turn reads this */
+  threadId: ThreadId;
+  /** every task this bot has, newest first */
+  tasks?: TaskRecord[];
+  name: string;
+  title: string;
+  description: string;
+  notifications: boolean;
+  color: SigilColor;
+  sigilExpression?: SigilExpression | null;
+  /** App-owned attachment served as this bot's custom profile image. */
+  avatarUrl?: string;
+  /** Sigil, or the crop applied to avatarUrl. */
+  avatarCrop?: BotAvatarCrop;
+  unread: boolean;
+  modelSelection: ModelSelection;
+  /** provider-native continuation per instance (e.g. claude session id) */
+  resumeCursors: Record<string, string>;
+  /** which computer the bot acts on: its cloud box, this Mac (local CUA),
+   * or none. Unset = auto (box when it exists, else local when available). */
+  computer?: "cloud" | "vm" | "local" | "off";
+  /** Which cloud computer backs `computer: "cloud"`; absent means Box. */
+  cloudBackend?: CloudBackend;
+  /** Auto mode may prepare/start this bot's managed VPS container. Off by
+   * default because starting remote infrastructure is an external action. */
+  autoStartVps?: boolean;
+  /** where NEW tasks run their shell tools; each task pins its own copy
+   * on its first turn (TaskRecord.cwd). Absent = the home folder. */
+  cwd?: string;
+  /** Auto mode: the bot approves its own tool permissions and keeps
+   * working instead of stopping to ask. Questions it asks YOU still come
+   * through, and a short list of destructive commands still stops it. */
+  autoApprove?: boolean;
+  /** Optional model review of otherwise undecided, attended approval cards.
+   * Unknown persisted values are treated as off by the review boundary. */
+  autoReview?: "off" | "shadow" | "enforce";
+  /** Tools this bot may always use without asking, even outside auto mode
+   * (set by "Always allow" on an approval card). */
+  alwaysAllow?: string[];
+  /** Speak this bot's replies aloud as they settle, without being asked.
+   * Off by default: a hosted voice costs money per character, so speaking
+   * is something you turn on, never something that happens to you. */
+  speakReplies?: boolean;
+  /** This bot's own voice id, so a room of bots doesn't sound like one
+   * person. Falls back to the app-wide voice in config. */
+  voice?: string;
+  /** true after an edit/branch-switch rewound the visible conversation:
+   * provider sessions still hold the abandoned branch, so the next turn
+   * must start fresh (drop cursors) and replay the surviving path. */
+  rewound?: boolean;
+  pinned?: boolean;
+  hidden?: boolean;
+  /** Optional labeled divider used to organize this bot in the sidebar. */
+  section?: string;
+  /** the one message pinned to the top of this bot's active thread; a pin
+   * that no longer resolves (branch switched away, deleted) renders nothing */
+  pinnedMessageId?: string;
+  /** The coordinator for this bot's sidebar section. The store enforces
+   * at most one Chief per section (including the unsectioned area). */
+  chiefOfStaff?: boolean;
+  /** Pause for human approval before this bot talks to a peer (ask_bot,
+   * delegate_bot). Off by default: a chief-of-staff-style bot is most
+   * useful when it can coordinate without nagging. */
+  approvePeerComms?: boolean;
+  /** Whether this bot may use the workspace's connected apps (Composio).
+   * Unset/true = allowed (the user configured the key deliberately);
+   * false = this bot never receives the connection. Imported team members
+   * start false — a shared persona must not reach the user's Gmail on
+   * turn one. */
+  composio?: boolean;
+  /** Whether this bot gets the app's built-in browser (the Browser tab of
+   * the computer panel). On unless switched off. */
+  browser?: boolean;
+  /** Id of a named browser profile from config.browserProfiles; absent = the
+   * bot's own private session. */
+  browserProfile?: string;
+  /** Public, package-authored playbooks installed for this bot. They carry
+   * process guidance only—never executable code, credentials, or grants. */
+  playbooks?: InstalledPlaybook[];
+  /** Listing provenance and connector intent retained for package details
+   * and future re-export. It never means the apps are authorized. */
+  installedPackage?: InstalledPackageMetadata;
+  /** Derived from `activity` — kept so the 200+ readers across the app and
+   * tests keep working unchanged. Write through setActivity(), never here. */
+  busy?: boolean;
+  /** What the bot is doing right now, as the harness sees it. `busy` alone
+   * could not tell working from waiting-on-you from a stalled engine.
+   * Transient like busy: reset to idle on load. */
+  activity?: BotActivity;
+  createdAt: number;
+}
+
+export interface InstalledPlaybook {
+  key: string;
+  name: string;
+  summary: string;
+  triggers: string[];
+  instructions: string;
+}
+
+export interface InstalledPackageMetadata {
+  id: string;
+  name: string;
+  release: string;
+  requiredApps: Array<{ slug: string; label: string; reason: string; optional?: boolean }>;
+}
+
+const persistedBotCoreSchema = z.looseObject({
+  id: z.string(),
+  threadId: z.string(),
+  name: z.string(),
+  createdAt: z.number(),
+});
+const persistedGroupCoreSchema = z.looseObject({
+  id: z.string(),
+  threadId: z.string(),
+  name: z.string(),
+  memberIds: z.array(z.string()),
+  createdAt: z.number(),
+});
+const persistedBotsSchema = z.array(
+  z.custom<BotRecord>((value) => persistedBotCoreSchema.safeParse(value).success, "Invalid persisted operator"),
+);
+const persistedGroupsSchema = z.array(
+  z.custom<GroupRecord>((value) => persistedGroupCoreSchema.safeParse(value).success, "Invalid persisted group"),
+);
+
+const describeNonFile = (entry: Stats): string =>
+  entry.isDirectory() ? "a directory"
+    : entry.isFIFO() ? "a named pipe"
+      : entry.isSocket() ? "a socket"
+        : "a special file";
+
+/** Read persisted state, telling "not written yet" apart from "unreadable".
+ *
+ * A missing file is a fresh install and empty state is the right answer. A file
+ * that EXISTS but fails to parse or validate is different in kind: the caller
+ * falls back to empty state and the next save overwrites it, so a single
+ * truncated roster used to destroy every operator, model choice and run title
+ * with no copy and no warning. Preserve the bytes before yielding the fallback.
+ */
+function loadPersisted<T>(path: string, parse: (raw: string) => T, empty: T): T {
+  let raw: string;
+  try {
+    // readFileSync opens before it reads, and open(2) on a named pipe blocks
+    // until a writer shows up. A FIFO left at bots.json therefore hangs boot
+    // FOREVER — no error, no log, no bound port — which is worse than a crash
+    // because there is nothing to act on. stat(2) never opens, so ask what the
+    // entry is first; only a regular file can hold persisted state, and
+    // anything else is quarantined exactly like unreadable bytes.
+    const entry = statSync(path);
+    if (!entry.isFile()) throw new Error(`${describeNonFile(entry)} where a state file is expected`);
+    raw = readFileSync(path, "utf8");
+  } catch (cause) {
+    // "No such file" is the first-run case and empty is the right answer. Any
+    // OTHER read failure means the file is THERE and we simply could not read
+    // it — a permission change, a directory in its place, a truncated volume.
+    // Returning empty for that silently discards live state, because the next
+    // save overwrites the path we just failed to read. Preserve it first; the
+    // rename inside quarantineCorruptFile does not need the contents, which is
+    // exactly why it is reachable here.
+    // SAFETY: the only throwers in this block are readFileSync/statSync,
+    // whose failures are Node errno errors; the optional chain covers a
+    // parse/validation error, which simply has no `code`.
+    if ((cause as NodeJS.ErrnoException)?.code === "ENOENT") return empty;
+    quarantineCorruptFile(path, "", cause);
+    return empty;
+  }
+  try {
+    return parse(raw);
+  } catch (cause) {
+    quarantineCorruptFile(path, raw, cause);
+    return empty;
+  }
+}
+
+const BOTS_FILE = join(DATA_DIR, "bots.json");
+const GROUPS_FILE = join(DATA_DIR, "groups.json");
+const messagesFile = (threadId: string) => join(DATA_DIR, `messages-${threadId}.json`);
+
+const COLORS: SigilColor[] = [
+  "green",
+  "blue",
+  "red",
+  "orange",
+  "purple",
+  "cyan",
+  "pink",
+  "yellow",
+  "teal",
+  "coral",
+];
+
+/** Sections are persisted as display labels, so exact trimmed labels are
+ * their identity. Missing/blank means the unsectioned (General) team. */
+/** A message carries a handful of reactions from a person and their operators.
+ * The bound exists so a client cannot grow one message's row — and every SSE
+ * patch that echoes it — without limit. */
+const MESSAGE_REACTION_MAX = 50;
+
+export const sectionKey = (section?: string | null): string => section?.trim() || "";
+
+const groupDefaultResponderSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("member"), botId: z.string() }),
+  z.object({ kind: z.literal("everyone") }),
+  z.object({ kind: z.literal("mentions") }),
+]);
+const peerActionSchema = z.enum(["ask_bot", "delegate_bot"]);
+
+/** Resolve @mentions in a message against a bot roster: `@` must start a
+ * word, the name must end on a word boundary (so "@New Bottle" never matches
+ * "New Bot"), names match case-insensitively, longest name wins (so
+ * "@New Bot 2" never half-matches "New Bot"), hidden bots skipped, results
+ * deduped. Callers pre-filter the sender out of `peers`. */
+export function mentionedBots<T extends { name: string; hidden?: boolean }>(text: string, peers: T[]): T[] {
+  const candidates = peers
+    .filter((p) => !p.hidden && p.name.trim())
+    .sort((a, b) => b.name.length - a.name.length);
+  const lower = text.toLowerCase();
+  const found: T[] = [];
+  let at = -1;
+  while ((at = lower.indexOf("@", at + 1)) !== -1) {
+    if (at > 0 && !/\s/.test(text[at - 1])) continue; // user@host, not a tag
+    const rest = lower.slice(at + 1);
+    const hit = candidates.find((p) => {
+      const name = p.name.toLowerCase();
+      if (!rest.startsWith(name)) return false;
+      const after = rest[name.length]; // must not run into a longer word
+      return after === undefined || !/[a-z0-9]/i.test(after);
+    });
+    if (hit && !found.includes(hit)) found.push(hit);
+  }
+  return found;
+}
+
+/** Normalize persisted or API-provided routing. Old rooms did not have this
+ * field; giving them their first member as lead fixes the old silent-send
+ * behavior without making every prompt fan out to every model. */
+export function normalizeGroupDefaultResponder(
+  value: GroupDefaultResponder | undefined,
+  memberIds: string[],
+  dm = false,
+): GroupDefaultResponder {
+  if (dm) return { kind: "mentions" };
+  const parsed = groupDefaultResponderSchema.safeParse(value);
+  if (parsed.success) {
+    if (parsed.data.kind === "everyone") return { kind: "everyone" };
+    if (parsed.data.kind === "mentions") return { kind: "mentions" };
+    if (memberIds.includes(parsed.data.botId)) return parsed.data;
+  }
+  if (memberIds.length === 0) return { kind: "mentions" };
+  return { kind: "member", botId: memberIds[0] };
+}
+
+/** Resolve the bots invoked by a human room message. Explicit targets win;
+ * otherwise the room policy chooses one member, everyone, or nobody. */
+export function roomResponders<T extends { id: string; name: string; hidden?: boolean }>(
+  text: string,
+  members: T[],
+  defaultResponder: GroupDefaultResponder,
+): T[] {
+  const available = members.filter((member) => !member.hidden);
+  if (/(?:^|\s)@everyone\b/i.test(text)) return available;
+  const mentioned = mentionedBots(text, available);
+  if (mentioned.length) return mentioned;
+  if (defaultResponder.kind === "everyone") return available;
+  if (defaultResponder.kind === "member") {
+    const lead = available.find((member) => member.id === defaultResponder.botId);
+    return lead ? [lead] : [];
+  }
+  return [];
+}
+
+const onboardingCard = (): OptionCardData => ({
+  title: "What should move first?",
+  subtitle: "Choose one outcome. Your operator will shape it into a visible run with clear gates.",
+  options: ["Build or ship", "Investigate and decide", "Plan and coordinate", "Clear a backlog"],
+});
+
+/** Messages form a tree (forks appear when a message is edited); the
+ * visible conversation is the path from the root to activeLeafId. */
+interface ThreadState {
+  messages: Message[];
+  activeLeafId: string | null;
+}
+
+export class Store {
+  bots: BotRecord[] = [];
+  groups: GroupRecord[] = [];
+  private threads = new Map<string, ThreadState>();
+  private defaultSelection: () => ModelSelection;
+  private listeners = new Set<(change: StoreChange) => void>();
+  private readonly fallbackThreadDeletionLifecycle: ThreadDeletionLifecycle;
+  private threadDeletionLifecycle: ThreadDeletionLifecycle;
+  private readonly fallbackBotWorkspaceDeletionLifecycle: BotWorkspaceDeletionLifecycle;
+  private botWorkspaceDeletionLifecycle: BotWorkspaceDeletionLifecycle;
+
+  constructor(defaultSelection: () => ModelSelection) {
+    this.defaultSelection = defaultSelection;
+    // A Store is safe even before the full host has constructed routines.
+    // The index replaces this prepare-only fallback with the live manager
+    // before it accepts requests; if startup dies earlier, that live manager
+    // resumes this shared journal on its next boot.
+    // Both erasure journals are read inside their manager's constructor, and
+    // an unparseable one throws from there — which killed the process at boot,
+    // on every restart, before it could bind a port, over a bookkeeping file
+    // the app writes itself. Quarantine it and start clean instead: a lost
+    // cleanup intent costs a stale workspace folder, an unopenable workspace
+    // costs everything. This runs before the index builds its live managers
+    // over the same paths, so it protects those too.
+    const threadErasuresFile = join(DATA_DIR, "thread-erasures.json");
+    const fallbackErasures = loadOrQuarantine(threadErasuresFile, () => new ThreadErasureManager({
+      file: threadErasuresFile,
+      eventsDir: EVENTS_DIR,
+      nativeDir: NATIVE_DIR,
+      dataDir: DATA_DIR,
+      eraseRoutineData: () => ({ detachedRoutines: 0, removedRuns: 0, removedRequestReceipts: 0 }),
+    }));
+    this.fallbackThreadDeletionLifecycle = {
+      prepare: (threadId, attachmentCandidates) => fallbackErasures.prepare(threadId, attachmentCandidates),
+      prepareMany: (requests) => fallbackErasures.prepareMany(requests),
+    };
+    this.threadDeletionLifecycle = this.fallbackThreadDeletionLifecycle;
+    const botWorkspaceErasuresFile = join(DATA_DIR, "bot-workspace-erasures.json");
+    const fallbackBotWorkspaceErasures = loadOrQuarantine(
+      botWorkspaceErasuresFile,
+      () => new BotWorkspaceErasureManager({
+        file: botWorkspaceErasuresFile,
+        botStillOwned: (botId) => this.bot(botId) !== null,
+      }),
+    );
+    this.fallbackBotWorkspaceDeletionLifecycle = {
+      prepare: (botId) => fallbackBotWorkspaceErasures.prepare(botId),
+    };
+    this.botWorkspaceDeletionLifecycle = this.fallbackBotWorkspaceDeletionLifecycle;
+    ensurePrivateDirectory(DATA_DIR);
+    repairPrivateFile(BOTS_FILE);
+    repairPrivateFile(GROUPS_FILE);
+    this.bots = loadPersisted(BOTS_FILE, (raw) => persistedBotsSchema.parse(parseJson(raw)), []);
+    this.groups = loadPersisted(GROUPS_FILE, (raw) => persistedGroupsSchema.parse(parseJson(raw)), []);
+    // busy never survives a restart — no turn does either. Rooms saved
+    // before default responders existed adopt their first member as lead.
+    let botsMigrated = false;
+    const chiefSectionsSeen = new Set<string>();
+    let groupsMigrated = false;
+    for (const b of this.bots) {
+      // transient state never survives a restart — and if a previous
+      // process died mid-turn, bots.json still says busy/working; persist
+      // the reset so the next load does not read it again
+      if (b.busy || (b.activity !== undefined && b.activity !== "idle")) botsMigrated = true;
+      b.busy = false;
+      b.activity = "idle";
+      for (const task of b.tasks ?? []) {
+        if (task.title !== LEGACY_UNTITLED_TASK) continue;
+        task.title = UNTITLED_TASK;
+        botsMigrated = true;
+      }
+      if (b.cloudBackend !== undefined && b.cloudBackend !== "box" && b.cloudBackend !== "vps") {
+        delete b.cloudBackend;
+        botsMigrated = true;
+      }
+      if (b.autoStartVps !== undefined && b.autoStartVps !== true && b.autoStartVps !== false) {
+        delete b.autoStartVps;
+        botsMigrated = true;
+      }
+      const avatar = botAvatarProfile(b);
+      if (b.avatarUrl !== undefined && avatar.avatarUrl !== b.avatarUrl) {
+        delete b.avatarUrl;
+        botsMigrated = true;
+      }
+      if (b.avatarCrop !== undefined && avatar.avatarCrop !== b.avatarCrop) {
+        delete b.avatarCrop;
+        botsMigrated = true;
+      }
+    }
+    for (const b of this.bots) {
+      if (!b.chiefOfStaff) continue;
+      const key = sectionKey(b.section);
+      if (!chiefSectionsSeen.has(key)) {
+        chiefSectionsSeen.add(key);
+        if (b.hidden) {
+          b.hidden = false;
+          botsMigrated = true;
+        }
+        continue;
+      }
+      b.chiefOfStaff = false;
+      botsMigrated = true;
+    }
+    // Peer grants originally used mutable display names (ask_bot:@Helper).
+    // Convert only when exactly one bot has that name; ambiguous legacy
+    // entries remain inert rather than granting access to the wrong bot.
+    for (const b of this.bots) {
+      if (!b.alwaysAllow?.length) continue;
+      let changed = false;
+      const migrated = b.alwaysAllow.map((key) => {
+        const match = key.match(/^(ask_bot|delegate_bot):@(.+)$/);
+        if (!match) return key;
+        const action = peerActionSchema.parse(match[1]);
+        const candidates = this.bots.filter((candidate) => candidate.name === match[2]);
+        if (candidates.length !== 1) return key;
+        changed = true;
+        return peerAllowKey(action, candidates[0]!.id);
+      });
+      if (changed) {
+        b.alwaysAllow = [...new Set(migrated)];
+        botsMigrated = true;
+      }
+    }
+    for (const g of this.groups) {
+      g.busyBotId = null;
+      for (const task of g.tasks ?? []) {
+        if (task.title !== LEGACY_UNTITLED_TASK) continue;
+        task.title = UNTITLED_TASK;
+        groupsMigrated = true;
+      }
+      const normalized = normalizeGroupDefaultResponder(g.defaultResponder, g.memberIds, Boolean(g.dm));
+      if (JSON.stringify(normalized) !== JSON.stringify(g.defaultResponder)) groupsMigrated = true;
+      g.defaultResponder = normalized;
+      // Bot-to-bot channels intentionally remain one canonical thread.
+      if (g.dm) {
+        if (g.tasks !== undefined) {
+          delete g.tasks;
+          groupsMigrated = true;
+        }
+        continue;
+      }
+      if (!g.tasks?.length) {
+        const initialTask: GroupTaskRecord = {
+          threadId: g.threadId,
+          title: this.firstUserLine(g.threadId) ?? UNTITLED_TASK,
+          createdAt: g.createdAt,
+        };
+        if (g.pinnedCwd !== undefined) initialTask.pinnedCwd = g.pinnedCwd;
+        if (g.pinnedMessageId) initialTask.pinnedMessageId = g.pinnedMessageId;
+        g.tasks = [initialTask];
+        groupsMigrated = true;
+      }
+      // Repair a malformed/stale active pointer conservatively. Every task
+      // transcript is retained; the newest known task becomes active.
+      let active = g.tasks.find((task) => task.threadId === g.threadId);
+      if (!active) {
+        active = g.tasks[0]!;
+        g.threadId = active.threadId;
+        groupsMigrated = true;
+      }
+      g.pinnedCwd = active.pinnedCwd;
+      g.pinnedMessageId = active.pinnedMessageId;
+    }
+    if (botsMigrated) this.saveBots();
+    if (groupsMigrated) this.saveGroups();
+    // bots saved before tasks existed have one endless thread; adopt it as
+    // their first task so nothing is lost and nothing special-cases it
+    for (const b of this.bots) {
+      if (b.tasks?.length) continue;
+      b.tasks = [
+        {
+          threadId: b.threadId,
+          title: this.firstUserLine(b.threadId) ?? UNTITLED_TASK,
+          createdAt: b.createdAt,
+          resumeCursors: b.resumeCursors ?? {},
+        },
+      ];
+    }
+    // Search reads SQLite directly, so migrate every known legacy transcript
+    // at startup rather than waiting until the user happens to open it. Only
+    // pending JSON files are touched; already-migrated threads stay lazy.
+    const knownThreads = new Set([
+      ...this.bots.flatMap((b) => [b.threadId, ...(b.tasks ?? []).map((task) => task.threadId)]),
+      ...this.groups.flatMap((group) => [group.threadId, ...(group.tasks ?? []).map((task) => task.threadId)]),
+    ]);
+    for (const threadId of knownThreads) {
+      const legacyFile = messagesFile(threadId);
+      if (existsSync(legacyFile)) {
+        repairPrivateFile(legacyFile);
+        mdb.readThread(threadId, legacyFile);
+      }
+    }
+  }
+
+  private saveBots() {
+    writeFileAtomic(BOTS_FILE, JSON.stringify(this.bots, null, 2), { mode: 0o600 });
+  }
+
+  private saveGroups() {
+    writeFileAtomic(
+      GROUPS_FILE,
+      JSON.stringify(this.groups.map(({ busyBotId: _busyBotId, ...g }) => g), null, 2),
+      { mode: 0o600 },
+    );
+  }
+
+  // ── groups ────────────────────────────────────────────────────────────
+  /** Subscribe to every write. Listeners run after the write and after
+   * save; a throwing listener never breaks the write. */
+  onChange(listener: (change: StoreChange) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Register the durable pre-delete intent writer.  The production host
+   * wires this before it accepts HTTP requests; standalone unit stores remain
+   * usable without it, but do not claim the host's crash-recovery guarantee. */
+  setThreadDeletionLifecycle(lifecycle: ThreadDeletionLifecycle | null): void {
+    this.threadDeletionLifecycle = lifecycle ?? this.fallbackThreadDeletionLifecycle;
+  }
+
+  setBotWorkspaceDeletionLifecycle(lifecycle: BotWorkspaceDeletionLifecycle | null): void {
+    this.botWorkspaceDeletionLifecycle = lifecycle ?? this.fallbackBotWorkspaceDeletionLifecycle;
+  }
+
+  private emit(change: StoreChange) {
+    for (const listener of Array.from(this.listeners)) {
+      try {
+        listener(change);
+      } catch (error) {
+        console.error("store: change listener threw", error);
+      }
+    }
+  }
+
+  group(id: string): GroupRecord | undefined {
+    return this.groups.find((g) => g.id === id);
+  }
+
+  groupByThread(threadId: string): GroupRecord | undefined {
+    return this.groups.find(
+      (group) => group.threadId === threadId || group.tasks?.some((task) => task.threadId === threadId),
+    );
+  }
+
+  createGroup(
+    name: string,
+    memberIds: string[],
+    dm = false,
+    section?: string,
+    setup?: {
+      bulletin?: string;
+      defaultResponder?: GroupDefaultResponder;
+      completed?: boolean;
+    },
+    planned?: { id: string; threadId: string },
+  ): GroupRecord {
+    if (planned && (this.group(planned.id) || this.groupByThread(planned.threadId))) {
+      throw new Error("Planned crew identity is already in use");
+    }
+    const threadId = planned?.threadId ?? newId();
+    const createdAt = Date.now();
+    const group: GroupRecord = {
+      id: planned?.id ?? newId(),
+      threadId,
+      name,
+      memberIds,
+      defaultResponder: dm
+        ? { kind: "mentions" }
+        : normalizeGroupDefaultResponder(setup?.defaultResponder, memberIds, false),
+      bulletin: setup?.bulletin ?? "",
+      unread: false,
+      createdAt,
+      dm: dm || undefined,
+      busyBotId: null,
+      section,
+    };
+    if (!dm) {
+      group.tasks = [{ threadId, title: UNTITLED_TASK, createdAt }];
+      group.setupCompletedAt = setup?.completed ? createdAt : null;
+      group.setupSkippedAt = null;
+    }
+    this.groups.unshift(group);
+    this.saveGroups();
+    this.emit({ type: "group", groupId: group.id });
+    return group;
+  }
+
+  /** The bot⇄bot channel for a pair, if it exists (order-insensitive). */
+  dmGroup(a: string, b: string): GroupRecord | undefined {
+    return this.groups.find(
+      (g) => g.dm && g.memberIds.length === 2 && g.memberIds.includes(a) && g.memberIds.includes(b),
+    );
+  }
+
+  patchGroup(id: string, patch: Partial<Pick<GroupRecord, "name" | "memberIds" | "defaultResponder" | "bulletin" | "unread" | "busyBotId" | "cwd" | "pinnedMessageId" | "section" | "setupCompletedAt" | "setupSkippedAt">>): GroupRecord | null {
+    const group = this.group(id);
+    if (!group) return null;
+    Object.assign(group, patch);
+    if (!group.dm && Object.prototype.hasOwnProperty.call(patch, "pinnedMessageId")) {
+      const active = this.activeGroupTask(group.id);
+      if (active) active.pinnedMessageId = patch.pinnedMessageId;
+    }
+    group.defaultResponder = normalizeGroupDefaultResponder(
+      group.defaultResponder,
+      group.memberIds,
+      Boolean(group.dm),
+    );
+    this.saveGroups();
+    this.emit({ type: "group", groupId: group.id });
+    return group;
+  }
+
+  private attachmentCandidatesForThread(threadId: string): string[] {
+    // Loading before intent is not mutation; it is required to capture every
+    // generated image path while the transcript still exists.
+    return [...new Set(this.messagesFor(threadId).flatMap((message) => transcriptAttachmentCandidates(message.text)))];
+  }
+
+  private prepareThreadDeletions(threadIds: ReadonlySet<string>): void {
+    const requests = [...threadIds].map((threadId) => ({
+      threadId,
+      attachmentCandidates: this.attachmentCandidatesForThread(threadId),
+    }));
+    if (this.threadDeletionLifecycle.prepareMany) {
+      this.threadDeletionLifecycle.prepareMany(requests);
+      return;
+    }
+    // Compatibility for a lightweight test lifecycle. Production and the
+    // fallback both supply prepareMany, which is the required atomic path.
+    for (const request of requests) this.threadDeletionLifecycle.prepare(request.threadId, request.attachmentCandidates);
+  }
+
+  private deletePreparedThreadRecord(threadId: string) {
+    this.threads.delete(threadId);
+    try {
+      purgeThreadTranscript(threadId);
+    } catch {
+      // The owner commit already happened. Emit the durable pending work so
+      // the manager can report/retry rather than stranding cleanup behind a
+      // post-commit HTTP 500. Its idempotent purge records the actual error.
+    }
+    this.emit({ type: "thread.deleted", threadId });
+  }
+
+  /** Used by the erasure manager on startup.  The operation is idempotent so
+   * it is safe after the Store's ordinary path has already purged the rows. */
+  purgeThreadTranscript(threadId: string) {
+    this.threads.delete(threadId);
+    return purgeThreadTranscript(threadId);
+  }
+
+  /** A candidate is safe to unlink only if no remaining transcript or bot
+   * profile references it.  This deliberately scans unloaded threads too so
+   * a cold SQLite/legacy transcript cannot be mistaken for an orphan. */
+  attachmentReferencedBySurvivor(name: string): boolean {
+    const avatarUrl = `/api/attachments/${name}`;
+    if (this.bots.some((bot) => bot.avatarUrl === avatarUrl)) return true;
+    const survivingThreadIds = new Set<string>();
+    for (const bot of this.bots) {
+      survivingThreadIds.add(bot.threadId);
+      for (const task of bot.tasks ?? []) survivingThreadIds.add(task.threadId);
+    }
+    for (const group of this.groups) {
+      survivingThreadIds.add(group.threadId);
+      for (const task of group.tasks ?? []) survivingThreadIds.add(task.threadId);
+    }
+    for (const threadId of survivingThreadIds) {
+      if (this.messagesFor(threadId).some((message) => transcriptAttachmentCandidates(message.text).includes(name))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Owner records are the deletion commit point. A boot retry must leave a
+   * pre-owner-save intent alone, otherwise a kill during deletion could purge
+   * a transcript whose bot/group record still survives. */
+  threadStillOwned(threadId: string): boolean {
+    return this.bots.some((bot) =>
+      bot.threadId === threadId || (bot.tasks ?? []).some((task) => task.threadId === threadId),
+    ) || this.groups.some((group) =>
+      group.threadId === threadId || (group.tasks ?? []).some((task) => task.threadId === threadId),
+    );
+  }
+
+  deleteGroup(id: string): boolean {
+    const group = this.group(id);
+    if (!group) return false;
+    const threadIds = new Set([group.threadId, ...(group.tasks ?? []).map((task) => task.threadId)]);
+    // Commit the full batch before persisting an owner state that no longer
+    // names these transcripts. Restart recovery then has every obligation.
+    this.prepareThreadDeletions(threadIds);
+    this.groups = this.groups.filter((g) => g.id !== id);
+    this.saveGroups();
+    for (const threadId of threadIds) {
+      this.deletePreparedThreadRecord(threadId);
+    }
+    this.emit({ type: "group.deleted", groupId: id });
+    return true;
+  }
+
+  // ── channel tasks ────────────────────────────────────────────────────
+  groupTasks(groupId: string): GroupTaskRecord[] {
+    const group = this.group(groupId);
+    return group?.dm ? [] : (group?.tasks ?? []);
+  }
+
+  activeGroupTask(groupId: string): GroupTaskRecord | undefined {
+    const group = this.group(groupId);
+    return group?.tasks?.find((task) => task.threadId === group.threadId);
+  }
+
+  groupTaskByThread(groupId: string, threadId: string): GroupTaskRecord | undefined {
+    const group = this.group(groupId);
+    if (!group || group.dm) return undefined;
+    return group.tasks?.find((task) => task.threadId === threadId);
+  }
+
+  createGroupTask(groupId: string, title?: string): GroupTaskRecord | null {
+    const group = this.group(groupId);
+    if (!group || group.dm) return null;
+    const task: GroupTaskRecord = {
+      threadId: newId(),
+      title: title?.trim().slice(0, 80) || UNTITLED_TASK,
+      createdAt: Date.now(),
+    };
+    group.tasks = [task, ...(group.tasks ?? [])];
+    group.threadId = task.threadId;
+    group.pinnedCwd = undefined;
+    group.pinnedMessageId = undefined;
+    this.saveGroups();
+    this.emit({ type: "group", groupId });
+    return task;
+  }
+
+  switchGroupTask(groupId: string, threadId: string): GroupRecord | null {
+    const group = this.group(groupId);
+    const task = group?.tasks?.find((candidate) => candidate.threadId === threadId);
+    if (!group || group.dm || !task) return null;
+    group.threadId = task.threadId;
+    group.pinnedCwd = task.pinnedCwd;
+    group.pinnedMessageId = task.pinnedMessageId;
+    this.saveGroups();
+    this.emit({ type: "group", groupId });
+    return group;
+  }
+
+  renameGroupTask(groupId: string, threadId: string, title: string): GroupTaskRecord | null {
+    const task = this.groupTaskByThread(groupId, threadId);
+    if (!task) return null;
+    task.title = title.trim().slice(0, 80) || UNTITLED_TASK;
+    this.saveGroups();
+    this.emit({ type: "group", groupId });
+    return task;
+  }
+
+  titleGroupTaskFromFirstMessage(groupId: string, text: string, threadId?: string) {
+    const task = threadId ? this.groupTaskByThread(groupId, threadId) : this.activeGroupTask(groupId);
+    if (!task || task.title !== UNTITLED_TASK) return;
+    task.title = titleFromMessage(text);
+    this.saveGroups();
+    this.emit({ type: "group", groupId });
+  }
+
+  deleteGroupTask(groupId: string, threadId: string): GroupRecord | null {
+    const group = this.group(groupId);
+    if (!group || group.dm || !group.tasks || group.tasks.length < 2) return null;
+    if (!group.tasks.some((task) => task.threadId === threadId)) return null;
+    this.prepareThreadDeletions(new Set([threadId]));
+    group.tasks = group.tasks.filter((task) => task.threadId !== threadId);
+    if (group.threadId === threadId) {
+      const next = group.tasks[0]!;
+      group.threadId = next.threadId;
+      group.pinnedCwd = next.pinnedCwd;
+      group.pinnedMessageId = next.pinnedMessageId;
+    }
+    this.saveGroups();
+    this.deletePreparedThreadRecord(threadId);
+    this.emit({ type: "group", groupId });
+    return group;
+  }
+
+  /** Toggle an emoji reaction on a message ("user" or a member botId). */
+  toggleReaction(threadId: string, messageId: string, emoji: string, by: string): Message | null {
+    const existing = this.messagesFor(threadId).find((m) => m.id === messageId);
+    if (!existing) return null;
+    const reactions = existing.reactions ?? [];
+    const at = reactions.findIndex((r) => r.emoji === emoji && r.by === by);
+    // Removing is always allowed; only growth is capped. Without this a caller
+    // sending distinct emoji grew the array, the persisted row, and every
+    // broadcast patch for as long as it kept going.
+    // Returning the unchanged message here answered the route's 200 with a
+    // message the mark was never written to, so the renderer kept its
+    // optimistic mark on screen forever. Throw with a status the route's
+    // boundary turns into a real 409: the client rolls the mark back and says
+    // why. A refusal the UI can see beats a mark that does not exist.
+    if (at < 0 && reactions.length >= MESSAGE_REACTION_MAX) {
+      throw Object.assign(
+        new Error(`This message already has ${MESSAGE_REACTION_MAX} reactions`),
+        { status: 409 },
+      );
+    }
+    const next = at >= 0 ? reactions.filter((_, i) => i !== at) : [...reactions, { emoji, by }];
+    return this.patchMessage(threadId, messageId, { reactions: next.length ? next : undefined });
+  }
+
+  private thread(threadId: string): ThreadState {
+    let t = this.threads.get(threadId);
+    if (t) return t;
+    // SQLite is the source of truth; a thread with no rows imports its
+    // legacy messages-<threadId>.json once, inside readThread
+    const { messages, activeLeafId: storedLeaf } = mdb.readThread(threadId, messagesFile(threadId));
+    let activeLeafId = storedLeaf;
+    // legacy rows carry no parentId — chain them in array order
+    let prev: string | null = null;
+    for (const m of messages) {
+      if (m.parentId === undefined) m.parentId = prev;
+      prev = m.id;
+    }
+    if (!activeLeafId) activeLeafId = messages.at(-1)?.id ?? null;
+    t = { messages, activeLeafId };
+    this.threads.set(threadId, t);
+    return t;
+  }
+
+  messagesFor(threadId: string): Message[] {
+    return this.thread(threadId).messages;
+  }
+
+  activeLeaf(threadId: string): string | null {
+    return this.thread(threadId).activeLeafId;
+  }
+
+  /** The visible conversation: root → activeLeafId. */
+  activePath(threadId: string): Message[] {
+    const t = this.thread(threadId);
+    const byId = new Map(t.messages.map((m) => [m.id, m]));
+    const path: Message[] = [];
+    let cur = t.activeLeafId ? byId.get(t.activeLeafId) : undefined;
+    while (cur) {
+      path.push(cur);
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return path.reverse();
+  }
+
+  appendMessage(threadId: string, message: Omit<Message, "id" | "at"> & { at?: number }): Message {
+    const t = this.thread(threadId);
+    const full: Message = { id: newId(), at: Date.now(), parentId: t.activeLeafId, ...redactBotAuthored(message) };
+    t.messages.push(full);
+    t.activeLeafId = full.id;
+    mdb.appendMessage(threadId, full);
+    if (full.kind === "screen") {
+      for (const pruned of this.pruneScreenFrames(t)) {
+        mdb.updateMessage(threadId, pruned);
+        this.emit({ type: "message.patch", threadId, message: pruned });
+      }
+    }
+    this.emit({ type: "message", threadId, message: full });
+    // The first-run quiz is not a live ask. Talking past it hides it so the
+    // transcript is just the greeting plus what they said. Cards with a
+    // requestId are permission/question prompts and stay until answered.
+    if (full.role === "user" && full.kind === "text") this.dismissOnboardingCard(threadId);
+    return full;
+  }
+
+  /** Hide the first-run quiz on this thread, if it is still open. */
+  dismissOnboardingCard(threadId: string): Message | null {
+    const t = this.thread(threadId);
+    const card = t.messages.find(
+      (message) => message.kind === "options" && message.card && !message.card.requestId && !message.card.dismissed,
+    );
+    if (!card?.card) return null;
+    return this.patchMessage(threadId, card.id, { card: { ...card.card, dismissed: true } });
+  }
+
+  /** Screen frames are ~100-500KB of base64 each; keeping every frame of a
+   * long computer session bloats the transcript for nothing the client
+   * would ever show. The newest few keep their pixels; older ones stay in
+   * the transcript as placeholders. Mirrors the client's own frame cap.
+   * Returns the messages whose pixels were dropped so the caller can
+   * persist exactly those. */
+  private pruneScreenFrames(t: { messages: Message[] }, keep = 4): Message[] {
+    const pruned: Message[] = [];
+    let seen = 0;
+    for (let i = t.messages.length - 1; i >= 0 && seen < t.messages.length; i--) {
+      const m = t.messages[i];
+      if (m.kind !== "screen" || !m.png) continue;
+      seen += 1;
+      if (seen > keep) {
+        m.png = undefined;
+        pruned.push(m);
+      }
+    }
+    return pruned;
+  }
+
+  /** Fork the conversation: a new user message that replaces `sourceId`
+   * (same parent, new text) and becomes the active leaf. */
+  branchMessage(threadId: string, sourceId: string, text: string): Message | null {
+    const t = this.thread(threadId);
+    const source = t.messages.find((m) => m.id === sourceId);
+    if (!source) return null;
+    const full: Message = {
+      id: newId(),
+      at: Date.now(),
+      role: "user",
+      kind: "text",
+      text,
+      parentId: source.parentId ?? null,
+      replyToId: source.replyToId,
+    };
+    t.messages.push(full);
+    t.activeLeafId = full.id;
+    mdb.appendMessage(threadId, full);
+    this.emit({ type: "message", threadId, message: full });
+    return full;
+  }
+
+  /** Point the visible conversation at the branch containing `messageId`,
+   * descending to that branch's most recently active leaf. */
+  setActiveLeaf(threadId: string, messageId: string): string | null {
+    const t = this.thread(threadId);
+    if (!t.messages.some((m) => m.id === messageId)) return null;
+    let cur = messageId;
+    for (;;) {
+      const children = t.messages.filter((m) => m.parentId === cur);
+      if (!children.length) break;
+      cur = children.reduce((a, b) => (b.at >= a.at ? b : a)).id;
+    }
+    t.activeLeafId = cur;
+    mdb.setActiveLeaf(threadId, cur);
+    this.emit({ type: "thread", threadId, activeLeafId: cur });
+    return cur;
+  }
+
+  patchMessage(threadId: string, messageId: string, patch: Partial<Message>): Message | null {
+    const t = this.thread(threadId);
+    const idx = t.messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) return null;
+    t.messages[idx] = { ...t.messages[idx], ...patch, card: patch.card ?? t.messages[idx].card };
+    mdb.updateMessage(threadId, t.messages[idx]);
+    this.emit({ type: "message.patch", threadId, message: t.messages[idx] });
+    return t.messages[idx];
+  }
+
+  bot(id: string) {
+    return this.bots.find((b) => b.id === id) ?? null;
+  }
+
+  botByThread(threadId: string) {
+    return this.bots.find((b) => b.threadId === threadId || b.tasks?.some((t) => t.threadId === threadId)) ?? null;
+  }
+
+  createBot(
+    profile: Partial<
+      Pick<BotRecord, "name" | "title" | "description" | "color" | "sigilExpression" | "modelSelection" | "section">
+    > = {},
+    opts: {
+      /** false = no greeting/onboarding seed. Imported bots must not open
+       * with a first-person greeting the user never asked for. */
+      seedMessages?: boolean;
+      /** Durable import planning reserves these IDs before the owner write. */
+      planned?: { id: string; threadId: string };
+    } = {},
+  ): BotRecord {
+    if (opts.planned && (this.bot(opts.planned.id) || this.botByThread(opts.planned.threadId))) {
+      throw new Error("Planned operator identity is already in use");
+    }
+    const name = profile.name?.trim() || pickOperatorName(this.bots.map((b) => b.name));
+    const section = sectionKey(profile.section);
+    const bot: BotRecord = {
+      id: opts.planned?.id ?? newId(),
+      threadId: opts.planned?.threadId ?? newId(),
+      name,
+      title: profile.title ?? "",
+      description: profile.description ?? "",
+      notifications: true,
+      color: profile.color ?? COLORS[this.bots.length % COLORS.length],
+      unread: false,
+      modelSelection: profile.modelSelection ?? this.defaultSelection(),
+      resumeCursors: {},
+      createdAt: Date.now(),
+    };
+    if (profile.sigilExpression) bot.sigilExpression = profile.sigilExpression;
+    if (section) bot.section = section;
+    bot.tasks = [{ threadId: bot.threadId, title: UNTITLED_TASK, createdAt: bot.createdAt, resumeCursors: {} }];
+    this.bots.unshift(bot);
+    this.saveBots();
+    // Announce the owner before its onboarding transcript. SSE clients need
+    // the bot/thread mapping before they can place either message.
+    this.emit({ type: "bot", botId: bot.id });
+    if (opts.seedMessages !== false) {
+      this.appendMessage(bot.threadId, {
+        role: "bot",
+        kind: "text",
+        text: `I’m ${name}. Set the outcome; I’ll move the work and surface every gate.`,
+      });
+      this.appendMessage(bot.threadId, { role: "bot", kind: "options", card: onboardingCard() });
+    }
+    return bot;
+  }
+
+  deleteBot(id: string): boolean {
+    const bot = this.bot(id);
+    if (!bot) return false;
+    const threadIds = new Set([bot.threadId, ...(bot.tasks ?? []).map((task) => task.threadId)]);
+    this.prepareThreadDeletions(threadIds);
+    // Journal the workspace before the owner write. If the process dies on
+    // either side of saveBots(), restart can distinguish a live bot from a
+    // committed deletion and will never remove a surviving operator's desk.
+    this.botWorkspaceDeletionLifecycle.prepare(id);
+    this.bots = this.bots.filter((b) => b.id !== id);
+    this.saveBots();
+    // every task's transcript goes with the bot, not just the open one
+    for (const threadId of threadIds) {
+      this.deletePreparedThreadRecord(threadId);
+    }
+    this.emit({ type: "bot.deleted", botId: id });
+    return true;
+  }
+
+  patchBot(id: string, patch: Partial<BotRecord>): BotRecord | null {
+    const bot = this.bot(id);
+    if (!bot) return null;
+    Object.assign(bot, patch);
+    this.saveBots();
+    this.emit({ type: "bot", botId: id });
+    return bot;
+  }
+
+  /** The one way runtime state changes. Sets `activity` and derives `busy`
+   * from it, so a reader that only knows busy sees the same truth. */
+  setActivity(botId: string, activity: BotActivity): BotRecord | null {
+    const bot = this.bot(botId);
+    if (!bot) return null;
+    const busy = ACTIVITY_BUSY.has(activity);
+    if (bot.activity === activity && Boolean(bot.busy) === busy) return bot;
+    bot.activity = activity;
+    bot.busy = busy;
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+    return bot;
+  }
+
+  /** Elect one lead operator in its section (or clear one section) as one persisted change.
+   * The changed records are returned so the server can update every open
+   * window, including the bot that just handed the role over. */
+  setChiefOfStaff(id: string | null, section?: string | null): BotRecord[] | null {
+    const selected = id ? this.bot(id) : null;
+    if (id && !selected) return null;
+    const targetSection = sectionKey(selected?.section ?? section);
+    const changed: BotRecord[] = [];
+    for (const bot of this.bots) {
+      if (sectionKey(bot.section) !== targetSection) continue;
+      const next = bot.id === id;
+      if (Boolean(bot.chiefOfStaff) === next && !(next && bot.hidden)) continue;
+      if (next) {
+        bot.chiefOfStaff = true;
+        // A section's main contact must stay reachable in the sidebar.
+        bot.hidden = false;
+      } else {
+        bot.chiefOfStaff = false;
+      }
+      changed.push(bot);
+    }
+    if (changed.length) this.saveBots();
+    for (const bot of changed) this.emit({ type: "bot", botId: bot.id });
+    return changed;
+  }
+
+  setResumeCursor(botId: string, instanceId: string, cursor: string, threadId?: string) {
+    const bot = this.bot(botId);
+    if (!bot) return;
+    // the cursor belongs to the task that produced it, not to the bot
+    const task = threadId ? this.taskByThread(botId, threadId) : this.activeTask(botId);
+    if (task) task.resumeCursors[instanceId] = cursor;
+    // The legacy mirror follows the task visible in chat, never a detached
+    // routine task working in the background.
+    if (!threadId || bot.threadId === threadId) bot.resumeCursors[instanceId] = cursor;
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+  }
+
+  /** Record which instance just took a turn on this task. Called at
+   * dispatch, not at cursor time — transcript-replay engines never
+   * produce a cursor, and they still count as having run last. */
+  markTaskDispatched(botId: string, threadId: string, instanceId: string) {
+    const task = this.taskByThread(botId, threadId);
+    if (!task || task.lastInstanceId === instanceId) return;
+    task.lastInstanceId = instanceId;
+    this.saveBots();
+  }
+
+  /** Bank one settled turn onto its task. Called once per turn.completed;
+   * the running per-driver token indicator is deliberately not used here
+   * because its meaning differs by driver. */
+  addTaskUsage(
+    botId: string,
+    threadId: string,
+    turn: { input?: number; output?: number; cachedInput?: number; costUsd: number | null },
+  ): TaskUsage | null {
+    const task = this.taskByThread(botId, threadId);
+    if (!task) return null;
+    const prev: TaskUsage = { input: 0, output: 0, costUsd: null, turns: 0, ...task.usage };
+    const cost = turn.costUsd !== null && Number.isFinite(turn.costUsd) ? turn.costUsd : null;
+    const prevCost = prev.costUsd;
+    // providers occasionally report NaN or a negative on a partial turn —
+    // never let that poison a running tally
+    const clean = (n: number | undefined) => (n !== undefined && Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0);
+    // the cached share exists on a record only once a driver has reported
+    // it — a driver that never does leaves the record shaped as before
+    const cachedKnown = prev.cachedInput !== undefined || turn.cachedInput !== undefined;
+    const prevInput = clean(prev.input);
+    const turnInput = clean(turn.input);
+    const nextCachedInput = Math.min(clean(prev.cachedInput), prevInput)
+      + Math.min(clean(turn.cachedInput), turnInput);
+    const usage: TaskUsage = {
+      input: prevInput + turnInput,
+      output: prev.output + clean(turn.output),
+      costUsd: cost === null ? prevCost : (prevCost ?? 0) + cost,
+      turns: prev.turns + 1,
+    };
+    if (cachedKnown) usage.cachedInput = nextCachedInput;
+    task.usage = usage;
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+    return task.usage;
+  }
+
+  /** The folder a task's turn runs in. Pins on first call from the bot's
+   * current folder — unless the task already has a session (a thread from
+   * before folders existed), which pins to the default so the folder can't
+   * move under it. Returns the pinned value: a path, or null for default. */
+  pinTaskCwd(botId: string, threadId: string, fallbackCwd?: string, opts: { none?: boolean } = {}): string | null {
+    const bot = this.bot(botId);
+    const task = bot ? this.taskByThread(botId, threadId) : undefined;
+    if (!bot || !task) return null;
+    if (opts.none) {
+      if (task.cwd !== null) {
+        task.cwd = null;
+        this.saveBots();
+        this.emit({ type: "bot", botId });
+      }
+      return null;
+    }
+    if (task.cwd === undefined) {
+      task.cwd = Object.keys(task.resumeCursors).length === 0 ? (bot.cwd ?? fallbackCwd ?? null) : null;
+      this.saveBots();
+      this.emit({ type: "bot", botId });
+    }
+    return task.cwd;
+  }
+
+  /** The folder a room's member turns run in. Pins on the first turn that
+   * dispatches, from the room's `cwd` at that moment. Pinned, not read
+   * live, for the same reason tasks pin (see pinTaskCwd): engines key
+   * their sessions and files to the folder a thread starts in, and a room
+   * lives on ONE thread forever — so changing the room's folder applies to
+   * future rooms, never under a room that already started working
+   * somewhere. Returns the pinned value: a path, or null = each member's
+   * own default. */
+  pinGroupCwd(groupId: string, threadId?: string): string | null {
+    const group = this.group(groupId);
+    if (!group) return null;
+    const task = threadId ? this.groupTaskByThread(groupId, threadId) : this.activeGroupTask(groupId);
+    // Direct-message channels retain the original single-thread contract.
+    if (!task) {
+      if (!group.dm) return null;
+      if (group.pinnedCwd === undefined) {
+        group.pinnedCwd = group.cwd ?? null;
+        this.saveGroups();
+        this.emit({ type: "group", groupId: group.id });
+      }
+      return group.pinnedCwd;
+    }
+    if (task.pinnedCwd === undefined) {
+      task.pinnedCwd = group.cwd ?? null;
+      if (group.threadId === task.threadId) group.pinnedCwd = task.pinnedCwd;
+      this.saveGroups();
+      this.emit({ type: "group", groupId: group.id });
+    }
+    return task.pinnedCwd;
+  }
+
+  // ── tasks ─────────────────────────────────────────────────────────────
+  /** The first thing the human asked in a thread — a task's natural name. */
+  private firstUserLine(threadId: string): string | null {
+    const first = this.messagesFor(threadId).find((m) => m.role === "user" && m.kind === "text" && m.text?.trim());
+    return first?.text ? titleFromMessage(first.text) : null;
+  }
+
+  tasks(botId: string): TaskRecord[] {
+    return this.bot(botId)?.tasks ?? [];
+  }
+
+  activeTask(botId: string): TaskRecord | undefined {
+    const bot = this.bot(botId);
+    return bot?.tasks?.find((t) => t.threadId === bot.threadId);
+  }
+
+  taskByThread(botId: string, threadId: string): TaskRecord | undefined {
+    return this.bot(botId)?.tasks?.find((t) => t.threadId === threadId);
+  }
+
+  /** A fresh context on the same bot: new thread, new session, same
+   * persona/tools/computer. Becomes the active task. */
+  createTask(botId: string, title?: string, activate = true): TaskRecord | null {
+    const bot = this.bot(botId);
+    if (!bot) return null;
+    const task: TaskRecord = {
+      threadId: newId(),
+      title: title?.trim() || UNTITLED_TASK,
+      createdAt: Date.now(),
+      resumeCursors: {},
+    };
+    bot.tasks = [task, ...(bot.tasks ?? [])];
+    if (activate) {
+      bot.threadId = task.threadId;
+      bot.resumeCursors = {}; // legacy mirror follows the active task
+    }
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+    return task;
+  }
+
+  switchTask(botId: string, threadId: string): BotRecord | null {
+    const bot = this.bot(botId);
+    const task = bot?.tasks?.find((t) => t.threadId === threadId);
+    if (!bot || !task) return null;
+    bot.threadId = task.threadId;
+    bot.resumeCursors = { ...task.resumeCursors };
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+    return bot;
+  }
+
+  renameTask(botId: string, threadId: string, title: string): TaskRecord | null {
+    const task = this.bot(botId)?.tasks?.find((t) => t.threadId === threadId);
+    if (!task) return null;
+    task.title = title.trim().slice(0, 80) || UNTITLED_TASK;
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+    return task;
+  }
+
+  /** Name a task after its first message, once. */
+  titleTaskFromFirstMessage(botId: string, text: string, threadId?: string) {
+    const task = threadId ? this.taskByThread(botId, threadId) : this.activeTask(botId);
+    if (!task || task.title !== UNTITLED_TASK) return;
+    task.title = titleFromMessage(text);
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+  }
+
+  /** Delete a task and its transcript. A bot always keeps one. */
+  deleteTask(botId: string, threadId: string): BotRecord | null {
+    const bot = this.bot(botId);
+    if (!bot || !bot.tasks || bot.tasks.length < 2) return null;
+    if (!bot.tasks.some((t) => t.threadId === threadId)) return null;
+    this.prepareThreadDeletions(new Set([threadId]));
+    bot.tasks = bot.tasks.filter((t) => t.threadId !== threadId);
+    if (bot.threadId === threadId) {
+      bot.threadId = bot.tasks[0]!.threadId;
+      bot.resumeCursors = { ...bot.tasks[0]!.resumeCursors };
+    }
+    this.saveBots();
+    this.deletePreparedThreadRecord(threadId);
+    this.emit({ type: "bot", botId });
+    return bot;
+  }
+
+  /** First-run seed: one bot so the app never opens empty — it gets a
+   * random friendly name like every other bot. */
+  seedIfEmpty() {
+    if (this.bots.length) return;
+    this.createBot();
+  }
+}
