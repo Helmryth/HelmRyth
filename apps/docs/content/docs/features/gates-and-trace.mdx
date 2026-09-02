@@ -1,0 +1,19 @@
+---
+title: Gates and trace
+description: Keep consequential operator requests and lower-level run evidence visible.
+icon: ShieldCheck
+---
+
+Helmryth renders structured operator events as native workstream records. Questions, choices, permission requests, capability activity, and failures remain attached to the run that produced them.
+
+## Gates
+
+When an engine supports Gates, Helmryth surfaces the request instead of hiding it in terminal output. Read the action, resource, and consequence before deciding. Denying a request sends control back to the operator so it can choose a safer path.
+
+## Trace
+
+Use **Trace** when you need more detail than the workstream provides. It follows capability calls, reconnect attempts, engine output, and long-running work.
+
+## When a run disconnects
+
+Helmryth retries transient streaming failures. If retries end in an authentication or configuration error, fix the underlying engine rather than repeatedly retrying the run. See [Operator engine troubleshooting](../providers/troubleshooting.mdx).

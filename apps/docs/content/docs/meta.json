@@ -1,0 +1,18 @@
+{
+  "title": "Helmryth",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "features",
+    "providers",
+    "workbenches",
+    "capabilities",
+    "mobile",
+    "self-hosting",
+    "security",
+    "troubleshooting",
+    "changelog",
+    "contributing"
+  ]
+}
