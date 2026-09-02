@@ -1,0 +1,26 @@
+{
+  "name": "@helmryth/conduit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260825.1",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.10",
+    "wrangler": "4.125.0"
+  },
+  "scripts": {
+    "check": "pnpm types && tsc -p tsconfig.json && node --check scripts/deploy-preflight.mjs",
+    "test": "vitest run && pnpm preflight:test",
+    "types": "wrangler types --config wrangler.dev.jsonc worker-configuration.d.ts",
+    "types:check": "wrangler types --check --config wrangler.dev.jsonc worker-configuration.d.ts",
+    "dry-run": "wrangler deploy --dry-run --config wrangler.dev.jsonc",
+    "preflight": "node scripts/deploy-preflight.mjs --config wrangler.jsonc",
+    "preflight:test": "node --test scripts/deploy-preflight.test.mjs",
+    "deploy:production": "pnpm preflight && wrangler deploy --config wrangler.jsonc"
+  }
+}
