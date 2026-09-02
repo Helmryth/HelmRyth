@@ -1,0 +1,5 @@
+{
+  "title": "Features",
+  "icon": "Sparkles",
+  "pages": ["index", "operators-and-runs", "workstreams-and-crews", "gates-and-trace", "attachments-and-search", "cadences", "voice-and-memory"]
+}

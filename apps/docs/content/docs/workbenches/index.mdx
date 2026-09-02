@@ -1,0 +1,26 @@
+---
+title: Give an operator a workbench
+description: Choose the right workbench or isolated environment for a run.
+icon: Monitor
+---
+
+An operator can work without a workbench, use the host workbench running Helmryth, or work inside an isolated desktop.
+
+| Backend | Isolation | Best for |
+|---|---|---|
+| Host Workbench | None | Working with local apps and files you explicitly approve |
+| Isolated Workbench | Containerized desktop | Repeatable browser and desktop work on your machine |
+| Remote Workbench | Hosted remote desktop | Always-available isolated Linux work |
+| Remote Workbench | Hardened container over SSH | Using infrastructure you own |
+
+## Auto, host, and remote selection
+
+Workbench selection is explicit per operator. Auto may reuse a ready, verified backend, but it does not silently provision every backend or turn on host control.
+
+## Preview and takeover
+
+The Workbench panel can show live frames while an operator works. Supported remote workbenches also provide an interactive viewer. Helmryth opens that viewer in the app when possible, with a browser fallback for external join flows.
+
+<Callout type="warn" title="Preview is not permission">
+  Starting a screen preview does not grant the operator control. Local input requires a separate opt-in and remains subject to the workbench safety boundary.
+</Callout>

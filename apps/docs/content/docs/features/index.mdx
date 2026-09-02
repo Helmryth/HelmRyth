@@ -1,0 +1,52 @@
+---
+title: Capability overview
+description: A map of the capabilities currently available in Helmryth.
+icon: Sparkles
+---
+
+Helmryth turns supported CLIs into an editorial workstream surface. The harness normalizes each provider into one event stream, so the interface can treat different operators consistently while preserving their native strengths.
+
+## Operators and workstreams
+
+- A separate operator for each role, model, personality, and work folder
+- Streaming responses with live capability activity
+- Multiple runs per operator, with searchable, persistent trace history
+- Edit, branch, rewind, pin, react, export, and share workstream content
+- Crews for multi-operator collaboration and explicit delegation
+- Queueing and steering while an operator is already working
+- Per-run token and cost visibility
+- Readable, editable operator memory
+
+## Workbenches and capabilities
+
+- Local workbench control with explicit opt-in and gate boundaries on supported hosts; Ubuntu currently fails closed under an input-safety hold
+- Isolated workbenches through Docker or Podman
+- Remote Box workbenches
+- A self-hosted Linux VPS backend over Docker's SSH transport
+- Live previews and in-app workbench takeover where the backend supports it
+- USB Android control through the Phone Harness capability
+- Connected capabilities through Composio, including multiple labeled accounts per toolkit
+
+## Automation
+
+- One-time and weekday cadences
+- Webhook-triggered runs with dedicated secret endpoints
+- Fresh run context and durable receipts for each automated run
+- Notifications for work that needs attention
+
+## Voice and access
+
+- Spoken replies and per-operator ElevenLabs voices
+- Native macOS dictation and half-duplex call mode
+- Paired iOS companion with workstreams, gates, search, trace controls, and opt-in workbench viewing
+
+## Desktop experience
+
+- macOS, Windows, and Ubuntu packages
+- Theme switching and accessible contrast
+- Sidebar sections, compact headers, pinned messages, spoilers, and image attachments
+- Automatic updates on macOS and Windows
+
+<Callout type="info" title="Platform differences are intentional">
+  macOS has the broadest native integration. Ubuntu workstreams, preview, remote workbenches, and isolated workbenches are available, while host control is temporarily disabled under an input-safety hold. Windows installers are not yet signed, and the iOS companion keeps sensitive workbench configuration on the host.
+</Callout>

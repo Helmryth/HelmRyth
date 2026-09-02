@@ -1,0 +1,5 @@
+{
+  "title": "Workbenches",
+  "icon": "Monitor",
+  "pages": ["index", "host-workbench", "isolated-workbench", "remote-workbench"]
+}

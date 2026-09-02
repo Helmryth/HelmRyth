@@ -1,0 +1,19 @@
+---
+title: Data and backups
+description: Know what Helmryth stores locally and what to preserve.
+icon: DatabaseBackup
+---
+
+Helmryth keeps its application state under `~/.helmryth`, including configuration, transcripts, message attachments, device pairing state, and the SQLite message store.
+
+## Back up
+
+Close Helmryth before taking a filesystem-level backup so SQLite and configuration files are captured consistently. Preserve the entire `.helmryth` directory rather than selecting individual database files.
+
+## Do not copy secrets casually
+
+Packaged desktop builds may protect credentials using operating-system secure storage. Copying the JSON directory to another machine does not necessarily make protected credentials usable there, and it should not be treated as a portable credential export.
+
+## Disposable workbench filesystems
+
+Isolated workbench workspaces are mounted durably, but a self-hosted VPS container filesystem is intentionally disposable. Move important artifacts to a durable workspace, repository, or connected capability before removing or upgrading a container.
