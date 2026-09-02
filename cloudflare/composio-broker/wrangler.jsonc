@@ -1,0 +1,35 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "helmryth-conduit",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "conduit.invalid", "custom_domain": true }
+  ],
+  "vars": {
+    "COMPOSIO_API_BASE": "https://backend.composio.dev/api/v3.1",
+    "COMPOSIO_TOOLKIT_BASE": "https://backend.composio.dev/api/v3",
+    "HELMRYTH_CONDUIT_ENROLLMENT_MODE": "closed",
+    "HELMRYTH_CONDUIT_ORIGIN": "https://conduit.invalid"
+  },
+  "secrets": { "required": ["COMPOSIO_API_KEY"] },
+  "d1_databases": [
+    {
+      "binding": "CONDUIT_DB",
+      "database_name": "helmryth-conduit",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    { "name": "NODE_ENROLLMENT_LIMITER", "namespace_id": "0000000", "simple": { "limit": 30, "period": 60 } },
+    { "name": "CONDUIT_SESSION_LIMITER", "namespace_id": "0000000", "simple": { "limit": 120, "period": 60 } }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.05 }
+  }
+}
