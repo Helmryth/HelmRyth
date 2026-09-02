@@ -194,7 +194,14 @@ describe("harness resilience", () => {
     // queues without limit: before the cap, this loop grew the server by every
     // frame it produced and the stalled client was never let go. Enough
     // frames here to fill the socket buffers and then cross the cap.
-    for (let write = 0; write < 600; write++) {
+    //
+    // writableLength only begins climbing once the KERNEL send buffer is
+    // already full, and Linux auto-tunes those into the megabytes where macOS
+    // does not. 600 frames overflowed one kernel and left writableLength at
+    // zero on the other, so the eviction under test never fired on Linux CI
+    // while passing on every developer laptop. The count is sized to clear the
+    // larger buffer, not the smaller one.
+    for (let write = 0; write < 5_000; write++) {
       await api("PATCH", `/api/bots/${bot.id}`, { description: write % 2 ? description : description.slice(1) });
     }
     // A paused socket does not notice the server hanging up until it reads,
@@ -208,7 +215,7 @@ describe("harness resilience", () => {
     await expect.poll(() => healthyBytes, { timeout: 5_000 }).toBeGreaterThan(healthyBytesAtEviction);
     healthy.socket.destroy();
     await api("DELETE", `/api/bots/${bot.id}`);
-  }, 60_000);
+  }, 240_000);
 
   it("says so when a crew's lead no longer exists instead of dropping the message", async () => {
     // The room still has a surviving member, so nothing reported "everyone is
