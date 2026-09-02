@@ -1,0 +1,8 @@
+Welcome to Helmryth Mobile 1.0.
+
+• Pair securely with your Helmryth workbench
+• Default QR pairing now stays on hosted HTTPS; Tailscale and local routes remain explicit choices
+• Chat with operators and crews
+• Answer gates and questions
+• Search, manage runs, edit versions, react, and share transcripts
+• Follow live work and reconnect without losing events
