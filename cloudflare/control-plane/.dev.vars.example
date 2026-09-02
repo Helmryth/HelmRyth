@@ -1,0 +1,10 @@
+# Copy to .dev.vars. Generate both secrets locally; never commit that file.
+HELMRYTH_REGISTRY_ORIGIN=https://registry.helmryth.test
+HELMRYTH_REGISTRY_AUTH_SECRET=generate-a-random-secret-of-at-least-32-characters
+CLOUDFLARE_API_TOKEN=use-a-scoped-cloudflare-api-token-for-your-own-account
+HELMRYTH_EMAIL_FROM=noreply@helmryth.test
+HELMRYTH_NODE_ORIGINS=https://desktop.helmryth.test
+CLOUDFLARE_ACCOUNT_ID=00000000000000000000000000000000
+CLOUDFLARE_ZONE_ID=00000000000000000000000000000000
+HELMRYTH_REACH_HOST_SUFFIX=reach.helmryth.test
+HELMRYTH_REACH_ORIGIN=http://127.0.0.1:8812
