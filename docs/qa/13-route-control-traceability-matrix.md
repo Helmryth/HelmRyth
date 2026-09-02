@@ -240,7 +240,7 @@ Route alternatives and method unions were expanded into semantic method/path sha
 | Selected chat | operator -> `ChatView`; crew -> `GroupView` | `SH-ROUTE-001`, `SH-ROUTE-002`, `WS-*` | Mixed |
 | Store overlays | `settingsOpen` -> `SettingsPanel`; `pluginsOpen` -> `PluginsPanel`; `computerOpen` -> `ComputerPanel`; `inspectorOpen` -> `InspectorPanel`; `appSettingsOpen` -> `SettingsModal` | `SYS-DOS-*`, `CAP-*`, `WB-PANEL-*`, `TRC-*`, `SYS-NAV-*` | Mixed |
 | Store navigation actions | `select`, `showTeamMap`, `showRoutines`, `showSkillRecorder`, `toggleSettings`, `togglePlugins`, `toggleComputer`, `toggleInspector`, `toggleAppSettings` | Same owners as destinations | Reducer automation plus manual focus proof |
-| System destinations | `general`/System, `connections`/Connections, `engines`/Engines, `companion`/Helmryth Mobile, `computer`/Workbench, `usage`/Run ledger | `SYS-GEN-*`, `SYS-CON-*`, `SYS-ENG-*`, `SYS-MOB-*`, `SYS-WBK-*`, `SYS-USE-*` | Mixed |
+| System destinations | `general`/System, `connections`/Connections, `engines`/Engines, `companion`/Helmryth Mobile, `computer`/Workbench, `usage`/Spend ledger | `SYS-GEN-*`, `SYS-CON-*`, `SYS-ENG-*`, `SYS-MOB-*`, `SYS-WBK-*`, `SYS-USE-*` | Mixed |
 | App-local/nested | Browser/Local VM workspaces; drawer; palette; no-engine; onboarding; updater; empty/connecting; Workbench `computer/android/browser`; Cadences `calendar/webhooks`; Capabilities `marketplace/connected`; library `explore/import/scout`; model `main/custom`; Trace `events/provider-raw` | Docs `01`, `03`, `04`, `05`, `06` owning IDs | Manual destination sweep still required |
 
 ## Desktop renderer file/control ledger

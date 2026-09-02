@@ -1,0 +1,44 @@
+---
+title: Helmryth Mobile
+description: Pair an iPhone directly with the Helmryth instance running on your host.
+icon: Smartphone
+---
+
+The native iOS companion is a thin client. Your host remains the only machine that owns operator processes, credentials, traces, SQLite data, and workbenches.
+
+## What it can do
+
+- Discover and pair on the same LAN, connect through Tailscale, or use an
+  optional account-provisioned HTTPS address
+- List operators and crews, read paged traces, send messages, and interrupt work
+- Answer gates and questions, including narrow always-allow grants
+- Search, manage runs, react, share, and navigate message versions
+- Follow resumable live updates and optionally view an operator's managed Box remote workbench. The loopback-only VPS SSH viewer currently opens in the desktop app.
+
+## Pairing
+
+The desktop opens a two-minute pairing window with a high-entropy QR credential and a six-digit manual fallback. Redeeming either closes the window and returns a separate per-device token stored in iOS Keychain.
+
+The host stores only a digest of the device token. Revoking the phone from System settings invalidates future requests.
+
+## Network options
+
+- **Same trusted Wi-Fi:** Bonjour discovery and direct HTTP.
+- **Away from home:** Tailscale on both devices with the host's MagicDNS name.
+- **Hosted HTTPS:** sign in by email on the desktop to provision a private
+  Cloudflare Tunnel address; the phone still pairs to that specific host.
+
+LAN and Tailscale remain available without a Helmryth account. The hosted
+control plane stores account/installation metadata, not traces; Cloudflare
+proxies phone traffic to the user's host. Bonjour does not cross Tailscale,
+so that direct remote option uses manual address entry.
+
+Your host must remain on, awake, and running Helmryth. In desktop System settings, **Keep this host awake** can prevent system sleep while mobile access is enabled; it is off by default, allows the screen to turn off, and may use more battery. A sleeping or powered-off host cannot be reached even through hosted HTTPS.
+
+## Security boundary
+
+The companion sidecar uses a default-deny route allowlist. Provider keys, pairing administration, isolated workbench lifecycle, webhook secrets, crew-package import/export, and internal peer-provider routes remain unreachable from the phone.
+
+<Callout type="warn" title="Foreground-oriented connection">
+  Live and replayed events can produce alerts while the companion is connected, but a terminated iOS app cannot be awakened without a future APNs relay.
+</Callout>

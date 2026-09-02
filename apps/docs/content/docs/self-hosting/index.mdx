@@ -1,0 +1,35 @@
+---
+title: Self-hosting Helmryth
+description: Run the harness and desktop app on infrastructure you control.
+icon: Server
+---
+
+Helmryth is local-first by default: the harness listens on loopback, operator CLIs run on your machine, and application state lives under `~/.helmryth`.
+
+## Typical self-hosted setup
+
+1. Run Helmryth on your personal macOS, Windows, or Ubuntu host.
+2. Install and authenticate the operator CLIs you want to use.
+3. Add optional third-party keys only for the services you need.
+4. Keep the harness on loopback.
+5. Use the paired companion sidecar or Tailscale when another device needs access.
+
+## What is still third party
+
+Self-hosting Helmryth does not self-host every optional provider:
+
+- Operator providers authenticate and bill through their own CLI or API.
+- Composio owns capability OAuth grants unless you replace that integration.
+- Box owns managed Remote Workbenches.
+- ElevenLabs synthesizes speech when voice is enabled.
+
+These services are optional. Local workstreams through a locally installed operator CLI do not require them.
+
+## Run headless during development
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev:server
+```
+
+The main harness listens on `127.0.0.1:8799` by default. Keep it private; it owns operator processes, gates, workbenches, and workspace configuration.

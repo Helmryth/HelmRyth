@@ -1,0 +1,183 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+:root {
+  color-scheme: light;
+  --hry-bg: #ffffff;
+  --hry-raised: #f7f8f8;
+  --hry-ink: #0a0a0b;
+  --hry-muted: #5f6570;
+  --hry-line: #e5e7ea;
+  --hry-accent: #009957;
+  --hry-accent-soft: #eaf8f1;
+
+  --color-fd-background: var(--hry-bg);
+  --color-fd-foreground: var(--hry-ink);
+  --color-fd-muted: var(--hry-raised);
+  --color-fd-muted-foreground: var(--hry-muted);
+  --color-fd-border: var(--hry-line);
+  --color-fd-primary: var(--hry-accent);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-card: var(--hry-bg);
+  --color-fd-card-foreground: var(--hry-ink);
+  --color-fd-secondary: var(--hry-raised);
+  --color-fd-secondary-foreground: var(--hry-ink);
+  --color-fd-accent: var(--hry-accent-soft);
+  --color-fd-accent-foreground: #006b3d;
+}
+
+html {
+  scrollbar-gutter: stable;
+  background: var(--hry-bg);
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0 !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  background: var(--hry-bg);
+  color: var(--hry-ink);
+  letter-spacing: -0.012em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--hry-accent) 24%, transparent);
+}
+
+.hry-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 660;
+  letter-spacing: -0.02em;
+}
+
+.hry-brand img {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.5rem;
+}
+
+.hry-brand-docs {
+  border-left: 1px solid var(--hry-line);
+  color: var(--hry-muted);
+  font-size: 0.78rem;
+  font-weight: 520;
+  letter-spacing: 0;
+  margin-left: 0.1rem;
+  padding-left: 0.7rem;
+}
+
+.hry-product-shot {
+  margin: 2rem 0;
+}
+
+.hry-product-shot-frame {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--hry-line) 88%, transparent);
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1px 1px color-mix(in srgb, var(--hry-ink) 5%, transparent);
+}
+
+.hry-product-shot img {
+  display: block;
+  width: 100%;
+  max-height: 38rem;
+  object-fit: cover;
+}
+
+.hry-product-shot figcaption {
+  color: var(--hry-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin-top: 0.65rem;
+  text-align: center;
+}
+
+.hry-kicker {
+  color: var(--hry-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hry-lede {
+  color: var(--hry-muted);
+  font-size: 1.08rem;
+  line-height: 1.75;
+  max-width: 44rem;
+}
+
+.hry-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.75rem 0;
+}
+
+.hry-stat {
+  border: 1px solid var(--hry-line);
+  border-radius: 1rem;
+  background: var(--hry-raised);
+  padding: 1rem;
+}
+
+.hry-stat strong,
+.hry-stat span {
+  display: block;
+}
+
+.hry-stat strong {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.hry-stat span {
+  color: var(--hry-muted);
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+#nd-sidebar,
+#nd-subnav {
+  background: color-mix(in srgb, var(--hry-bg) 96%, transparent);
+}
+
+#nd-sidebar {
+  border-right-color: var(--hry-line);
+}
+
+#nd-subnav {
+  border-bottom-color: var(--hry-line);
+}
+
+.prose :where(h2, h3, h4) {
+  letter-spacing: -0.035em;
+}
+
+.prose :where(a:not([data-card])) {
+  text-decoration-color: color-mix(in srgb, var(--hry-accent) 45%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.prose :where(table) {
+  overflow: hidden;
+  border: 1px solid var(--hry-line);
+  border-radius: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .hry-stat-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hry-product-shot-frame {
+    border-radius: 0.9rem;
+  }
+}

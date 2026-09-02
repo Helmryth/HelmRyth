@@ -1,0 +1,39 @@
+---
+title: Operator engines
+description: Use the operator subscriptions and CLIs you already have.
+icon: BrainCircuit
+---
+
+Helmryth does not proxy every message through its own model account. It starts supported operator CLIs on your host and normalizes their output through the local harness.
+
+## Built-in engines
+
+| Engine | Authentication shape | Notes |
+|---|---|---|
+| Claude | Claude CLI login | Strong support for capabilities, Gates, sessions, and Host Workbench use |
+| Codex | Codex CLI login | Model discovery, Gates, steering, and Workbench capabilities |
+| Grok | Grok CLI login | ACP-based local model catalog and session support |
+| Cursor | Cursor Agent CLI login or API key | ACP driver with live model discovery |
+| Kimi | Kimi CLI login | ACP integration |
+| Droid | Factory Droid CLI login | ACP integration |
+| Antigravity | Google Antigravity CLI login | Default Google consumer engine |
+| OpenCode | Existing OpenCode provider login or optional API key | Live Zen, Go, third-party, and local model discovery through ACP |
+| Qwen | Qwen CLI login | ACP integration |
+| Hermes | Hermes CLI login | ACP integration |
+| Pi | Pi CLI login | Native driver |
+
+Additional driver instances can be declared in local configuration. Unavailable engines remain visible with a reason instead of crashing the provider fleet.
+
+## Detection
+
+Helmryth checks common installation directories and the login shell in the background. Restart the app after installing or authenticating a CLI.
+
+If detection fails, use **System settings → Engines** to set an explicit executable path. This is supported for every engine and is the most reliable solution for version managers, wrappers, custom builds, and Windows installations outside the normal path.
+
+## Model selection
+
+The model picker groups models by provider and marks defaults. Supported engines can refresh their model catalog from the installed CLI. Changing the model affects future runs; it does not rewrite earlier workstream history.
+
+<Callout type="info" title="Subscriptions stay with the provider">
+  Your existing CLI login or provider API key determines access and billing. Helmryth does not turn one subscription into access to another provider.
+</Callout>

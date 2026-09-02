@@ -1,0 +1,50 @@
+---
+title: Helmryth documentation
+description: Build a crew of operators that can talk, use capabilities, work in workbenches, and keep moving on a cadence.
+icon: BookOpen
+---
+
+<span className="hry-kicker">Local-first operator workbench</span>
+
+Helmryth turns supported CLIs into a precise desktop workbench. Each operator can have its own model, instructions, work folder, capabilities, environment, and recurring work.
+
+<div className="hry-stat-row">
+  <div className="hry-stat"><strong>Many engines</strong><span>Claude, Codex, Grok, Cursor, local models, and more</span></div>
+  <div className="hry-stat"><strong>Real capabilities</strong><span>Apps, files, terminals, browsers, environments, and cloud desktops</span></div>
+  <div className="hry-stat"><strong>Your machine</strong><span>Local data and bring-your-own operator subscriptions</span></div>
+</div>
+
+<Cards>
+  <Card title="Install Helmryth" href="/docs/getting-started/installation" description="Use a packaged build from your own distribution lane or run the app from source." />
+  <Card title="Create your first operator" href="/docs/getting-started/first-operator" description="Choose an engine, give it a work folder, and send a run." />
+  <Card title="Connect capabilities" href="/docs/capabilities" description="Authorize Gmail, GitHub, Slack, Notion, and hundreds more." />
+  <Card title="Give it a workbench" href="/docs/workbenches" description="Use your host workstation, an isolated local VM, Box, or your own VPS." />
+</Cards>
+
+## How the pieces fit
+
+| Layer | What it does | Where to configure it |
+|---|---|---|
+| **Operator** | Holds the identity, workstream, memory, and defaults | Operator settings |
+| **Operator engine** | Runs the reasoning loop and capabilities | Model picker and System settings |
+| **Work folder** | Gives the operator project context and a safe place to work | Operator settings |
+| **Capabilities** | Authorizes services such as Gmail or GitHub | Capabilities |
+| **Workbench** | Gives visual control of a desktop environment | Workbench panel |
+| **Cadence** | Runs work later, on a schedule, or from a webhook | Cadences |
+
+## Choose your path
+
+| I want to… | Start here |
+|---|---|
+| Understand the app in five minutes | [Quick tour](./getting-started/quick-tour.mdx) |
+| Pick Claude, Codex, Cursor, Grok, or a local model | [Operator engines](./providers/index.mdx) |
+| Organize operators, runs, crews, and delegations | [Operators and runs](./features/operators-and-runs.mdx) |
+| Control a browser or workbench | [Workbench environments](./workbenches/index.mdx) |
+| Run work every morning | [Cadences](./features/cadences.mdx) |
+| Reach my operators from an iPhone | [iOS companion](./mobile/ios-companion.mdx) |
+| Back up or move my data | [Data and backups](./self-hosting/data-and-backups.mdx) |
+| Build from source or contribute | [Contributing](./contributing/index.mdx) |
+
+<Callout type="info" title="Docs track released behavior">
+  Helmryth moves quickly. The changelog records shipped releases; proposed or unfinished work stays on GitHub until it lands.
+</Callout>

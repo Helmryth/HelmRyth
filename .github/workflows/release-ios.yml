@@ -1,0 +1,141 @@
+name: Release iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit/tag/branch to archive (defaults to the branch this runs from)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    name: Archive and upload to App Store Connect
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: release-production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - name: Fetch protected main and approved release tags
+        run: git fetch --force --prune origin '+refs/heads/main:refs/remotes/origin/main' '+refs/tags/*:refs/tags/*'
+      - name: Guard the release source
+        env:
+          HELMRYTH_RELEASE_TAG_PUBLIC_KEYS_ASC: ${{ secrets.HELMRYTH_RELEASE_TAG_PUBLIC_KEYS_ASC }}
+        run: node scripts/release-source-guard.mjs "${{ inputs.ref || github.ref }}"
+      - name: Validate protected App Store configuration before archiving
+        env:
+          HELMRYTH_IOS_DEVELOPMENT_TEAM: ${{ vars.HELMRYTH_IOS_DEVELOPMENT_TEAM }}
+          HELMRYTH_IOS_BUNDLE_ID: ${{ vars.HELMRYTH_IOS_BUNDLE_ID }}
+          HELMRYTH_IOS_WIDGET_BUNDLE_ID: ${{ vars.HELMRYTH_IOS_WIDGET_BUNDLE_ID }}
+          HELMRYTH_IOS_ASC_KEY_ID: ${{ secrets.HELMRYTH_IOS_ASC_KEY_ID }}
+          HELMRYTH_IOS_ASC_ISSUER_ID: ${{ secrets.HELMRYTH_IOS_ASC_ISSUER_ID }}
+          HELMRYTH_IOS_ASC_KEY_P8_BASE64: ${{ secrets.HELMRYTH_IOS_ASC_KEY_P8_BASE64 }}
+          HELMRYTH_IOS_SIGNING_CERT_P12_BASE64: ${{ secrets.HELMRYTH_IOS_SIGNING_CERT_P12_BASE64 }}
+          HELMRYTH_IOS_SIGNING_CERT_PASSWORD: ${{ secrets.HELMRYTH_IOS_SIGNING_CERT_PASSWORD }}
+          HELMRYTH_IOS_PROFILE_APP_BASE64: ${{ secrets.HELMRYTH_IOS_PROFILE_APP_BASE64 }}
+          HELMRYTH_IOS_PROFILE_WIDGET_BASE64: ${{ secrets.HELMRYTH_IOS_PROFILE_WIDGET_BASE64 }}
+        run: |
+          for name in \
+            HELMRYTH_IOS_DEVELOPMENT_TEAM \
+            HELMRYTH_IOS_BUNDLE_ID \
+            HELMRYTH_IOS_WIDGET_BUNDLE_ID \
+            HELMRYTH_IOS_ASC_KEY_ID \
+            HELMRYTH_IOS_ASC_ISSUER_ID \
+            HELMRYTH_IOS_ASC_KEY_P8_BASE64 \
+            HELMRYTH_IOS_SIGNING_CERT_P12_BASE64 \
+            HELMRYTH_IOS_SIGNING_CERT_PASSWORD \
+            HELMRYTH_IOS_PROFILE_APP_BASE64 \
+            HELMRYTH_IOS_PROFILE_WIDGET_BASE64
+          do
+            value="${!name:-}"
+            [ -n "$value" ] || { echo "::error::Missing $name"; exit 1; }
+          done
+          [ "${HELMRYTH_IOS_BUNDLE_ID}" = "com.helmryth.app" ] || {
+            echo "::error::HELMRYTH_IOS_BUNDLE_ID must match ios/project.yml"; exit 1; }
+          [ "${HELMRYTH_IOS_WIDGET_BUNDLE_ID}" = "com.helmryth.app.widgets" ] || {
+            echo "::error::HELMRYTH_IOS_WIDGET_BUNDLE_ID must match ios/project.yml"; exit 1; }
+      - name: Run Swift package tests
+        run: swift test --package-path ios
+      - name: Generate the pinned Xcode project
+        run: |
+          cd ios
+          ../scripts/prepare-xcodegen.sh --run generate
+      - name: Import the signing certificate and provisioning profiles
+        env:
+          HELMRYTH_IOS_SIGNING_CERT_P12_BASE64: ${{ secrets.HELMRYTH_IOS_SIGNING_CERT_P12_BASE64 }}
+          HELMRYTH_IOS_SIGNING_CERT_PASSWORD: ${{ secrets.HELMRYTH_IOS_SIGNING_CERT_PASSWORD }}
+          HELMRYTH_IOS_PROFILE_APP_BASE64: ${{ secrets.HELMRYTH_IOS_PROFILE_APP_BASE64 }}
+          HELMRYTH_IOS_PROFILE_WIDGET_BASE64: ${{ secrets.HELMRYTH_IOS_PROFILE_WIDGET_BASE64 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/ios-release.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$HELMRYTH_IOS_SIGNING_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/ios-release.p12"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$HELMRYTH_IOS_PROFILE_APP_BASE64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/helmryth-app.mobileprovision"
+          echo "$HELMRYTH_IOS_PROFILE_WIDGET_BASE64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/helmryth-widget.mobileprovision"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/ios-release.p12" -P "$HELMRYTH_IOS_SIGNING_CERT_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+          rm "$RUNNER_TEMP/ios-release.p12"
+      - name: Write temporary App Store Connect key and export options
+        env:
+          HELMRYTH_IOS_DEVELOPMENT_TEAM: ${{ vars.HELMRYTH_IOS_DEVELOPMENT_TEAM }}
+          HELMRYTH_IOS_ASC_KEY_P8_BASE64: ${{ secrets.HELMRYTH_IOS_ASC_KEY_P8_BASE64 }}
+        run: |
+          echo "$HELMRYTH_IOS_ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>upload</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${HELMRYTH_IOS_DEVELOPMENT_TEAM}</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+      - name: Archive the release build
+        env:
+          HELMRYTH_IOS_DEVELOPMENT_TEAM: ${{ vars.HELMRYTH_IOS_DEVELOPMENT_TEAM }}
+        run: |
+          cd ios
+          xcodebuild \
+            -project HelmrythCompanion.xcodeproj \
+            -scheme HelmrythCompanion \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/HelmrythCompanion.xcarchive" \
+            DEVELOPMENT_TEAM="$HELMRYTH_IOS_DEVELOPMENT_TEAM" \
+            archive
+      - name: Export and upload the archive
+        env:
+          HELMRYTH_IOS_ASC_KEY_ID: ${{ secrets.HELMRYTH_IOS_ASC_KEY_ID }}
+          HELMRYTH_IOS_ASC_ISSUER_ID: ${{ secrets.HELMRYTH_IOS_ASC_ISSUER_ID }}
+        run: |
+          cd ios
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/HelmrythCompanion.xcarchive" \
+            -exportPath "$RUNNER_TEMP/helmryth-ios-release" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$HELMRYTH_IOS_ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$HELMRYTH_IOS_ASC_ISSUER_ID"

@@ -1,0 +1,26 @@
+---
+title: Capabilities
+description: Fix OAuth loops, missing capabilities, and connections that appear to vanish.
+icon: Unplug
+---
+
+## Connection completes but the app still shows disconnected
+
+1. Return to Helmryth after the browser confirms success.
+2. Open **Capabilities** and use **Refresh connection status**.
+3. Check the **Connected** tab for the account, including its alias.
+4. Retry from the original operator after the account appears active.
+
+## The account is connected but the provider cannot use it
+
+Start a new run after connecting the service so the engine receives a fresh capability catalog. Name the service and account explicitly in the direction. If several accounts are connected, select or mention the intended alias.
+
+Some engines expose capabilities differently. Verify the chosen engine supports MCP or the capability bridge used by Helmryth.
+
+## Official build says the service is unavailable
+
+Check internet connectivity and try again later before reconnecting every account. The packaged app preserves its installation identity across transient broker outages; rotating or deleting local credentials during an outage can separate existing grants from the installation.
+
+## Self-hosted build asks for configuration
+
+Source and self-hosted builds do not automatically use the official managed service. Configure your own Composio project as described in [Self-hosted Composio](../capabilities/self-hosted-composio.mdx).
