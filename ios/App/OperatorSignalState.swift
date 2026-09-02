@@ -1,0 +1,57 @@
+// Which face an operator wears — the desktop's `stateForBot`, ported.
+//
+// A pinned expression wins; then what the operator is doing right now; then a
+// guess from its role. Same rules, same order, so an operator looks the same on
+// the phone as on the laptop.
+import Foundation
+import CompanionCore
+
+extension OperatorSignalState {
+    /// The desktop's legacy names, kept so an older operator record still resolves.
+    private static let legacy: [String: OperatorSignalState] = [
+        "deadpan": .idle, "friendly": .happy, "focused": .working, "thinking": .thinking,
+        "excited": .excited, "sleepy": .drowsy, "surprised": .surprised, "skeptical": .suspicious,
+        "worried": .scared, "mischievous": .playful,
+    ]
+
+    /// Resolves any stored value — current, legacy or junk — to a real state.
+    static func normalize(_ value: String?) -> OperatorSignalState? {
+        guard let value, !value.isEmpty else { return nil }
+        return OperatorSignalState(rawValue: value) ?? legacy[value]
+    }
+
+    static func forBot(_ bot: Bot, last: Message?) -> OperatorSignalState {
+        if let pinned = normalize(bot.sigilExpression) { return pinned }
+
+        if last?.kind == .activity, last?.tool?.ok == false { return .alerting }
+        if bot.busy == true { return .working }
+        if bot.unread { return .notifying }
+        if last?.kind == .options { return .curious }
+
+        let profile = "\(bot.name) \(bot.title) \(bot.description)".lowercased()
+        func matches(_ words: [String]) -> Bool {
+            words.contains { word in
+                profile.range(of: "\\b\(NSRegularExpression.escapedPattern(for: word))\\b", options: .regularExpression) != nil
+            }
+        }
+        if matches(["code", "coding", "developer", "development", "engineer", "engineering", "build", "debug", "program", "software"]) { return .working }
+        if matches(["research", "researcher", "search", "investigate", "strategy", "strategist", "study", "learn", "knowledge"]) { return .searching }
+        if matches(["marketing", "growth", "launch", "campaign", "social", "sales", "outreach", "brand"]) { return .excited }
+        if matches(["overnight", "night", "background", "async", "queue", "batch", "long-running"]) { return .drowsy }
+        if matches(["monitor", "monitoring", "incident", "alert", "watch", "status", "uptime"]) { return .radar }
+        if matches(["review", "reviewer", "audit", "critic", "critique", "quality", "qa", "test", "legal"]) { return .suspicious }
+        if matches(["security", "secure", "compliance", "risk", "privacy", "finance", "financial"]) { return .scared }
+        if matches(["design", "designer", "creative", "brainstorm", "art", "illustration", "music", "story"]) { return .playful }
+        if matches(["support", "help", "success", "onboarding", "coach", "teacher", "guide", "welcome"]) { return .happy }
+        return .idle
+    }
+
+    /// The face for a chat as a whole: an operator's own, a crew's is "happy"
+    /// — which is what the desktop draws for crew avatars.
+    static func forChat(_ chat: Chat, in state: CompanionState) -> OperatorSignalState {
+        switch chat {
+        case let .bot(bot): return forBot(bot, last: state.visibleTranscript(forThread: bot.threadId).last)
+        case .room: return .happy
+        }
+    }
+}
