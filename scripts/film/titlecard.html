@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- Title / end cards for the README feature films. Brand tokens copied from
+     src/styles.css so the cards and the app are the same product on screen. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Atkinson Hyperlegible Next Variable"; src: url("/assets/atkinson-hyperlegible-next-latin-wght-normal-BcXVPD7q.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+  @font-face { font-family: "Geologica Variable"; src: url("/assets/geologica-latin-wght-normal-BBL8hQxZ.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+  :root {
+    --app: oklch(0.974 0.012 83);
+    --ink: oklch(0.245 0.025 255);
+    --ink-2: oklch(0.53 0.02 255);
+    --accent: oklch(0.565 0.185 32);
+    --signal: oklch(0.5 0.105 195);
+    --hairline: oklch(0.9 0.012 83);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px;
+    background: var(--app);
+    font-family: "Atkinson Hyperlegible Next Variable", -apple-system, sans-serif;
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card { width: 880px; }
+  .rule { display: flex; gap: 6px; margin-bottom: 42px; }
+  .rule i { height: 3px; border-radius: 2px; background: var(--hairline); flex: 1; }
+  .rule i.on { background: var(--accent); }
+  .eyebrow {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--signal); margin-bottom: 18px;
+  }
+  h1 { font-family: "Geologica Variable", sans-serif; font-size: 60px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.06; }
+  h1 em { font-style: normal; color: var(--accent); }
+  p { margin-top: 22px; font-size: 21px; line-height: 1.5; color: var(--ink-2); max-width: 760px; }
+  .foot {
+    margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--hairline);
+    display: flex; align-items: center; gap: 14px;
+    font-size: 14px; color: var(--ink-2);
+  }
+  .mark { font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--hairline); }
+  .live { color: var(--signal); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="rule" id="rule"></div>
+    <div class="eyebrow" id="eyebrow">Feature</div>
+    <h1 id="title">Title</h1>
+    <p id="sub">Subtitle</p>
+    <div class="foot">
+      <span class="mark">HELMRYTH</span>
+      <span class="dot"></span>
+      <span id="foot-note">The work moves. You hold the helm.</span>
+      <span class="dot"></span>
+      <span class="live" id="badge">Recorded live</span>
+    </div>
+  </div>
+<script>
+  const q = new URLSearchParams(window.__CARD__ || location.search);
+  const set = (id, v) => { if (v !== null) document.getElementById(id).innerHTML = v; };
+  set("eyebrow", q.get("eyebrow"));
+  set("title", q.get("title"));
+  set("sub", q.get("sub"));
+  set("badge", q.get("badge"));
+  set("foot-note", q.get("note"));
+  // progress rule: which of the 10 films this is
+  const n = Number(q.get("n") || 0), total = Number(q.get("total") || 10);
+  document.getElementById("rule").innerHTML =
+    Array.from({ length: total }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("");
+</script>
+</body>
+</html>
