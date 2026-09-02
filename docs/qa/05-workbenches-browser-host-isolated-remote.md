@@ -30,7 +30,7 @@ Inventory count in this chapter: **213 defined cases** comprising **25 app HTTP 
 
 | Fixture | Exact setup | Reset and proof |
 |---|---|---|
-| `WB-DATA-CLEAN` | `HELMRYTH_HOME` points to a new mode-0700 temporary directory; deterministic operators Rivet and Cairn use fake providers. | Stop children, close viewers/tunnels, assert no process or port remains, archive redacted logs, then delete only the resolved temporary directory. |
+| `WB-DATA-CLEAN` | `HELMRYTH_DATA_DIR` points to a new mode-0700 temporary directory; deterministic operators Rivet and Cairn use fake providers. | Stop children, close viewers/tunnels, assert no process or port remains, archive redacted logs, then delete only the resolved temporary directory. |
 | `WB-BOX-FAKE` | Local fake ASCII/Box API supports missing, starting, ready, archived, error, rate-limit, auth, billing, truncated-image, and delayed responses. Token is unique test data. | Assert `noEnv: true`, created-on-failure box cleanup, Chrome quiesce before sleep, no test token in config response/log/transcript. |
 | `WB-VPS-FAKE` | Disposable Linux SSH target with validated alias `qa-vps`, fake or nested Docker, pinned image fixtures, no production keys. | Close loopback SSH forward, remove only managed `com.helmryth.vps` containers, retain inspect and argv evidence. |
 | `WB-VM-SHARED` | Supported Docker or rootless Podman, prepared pinned image, shared allocation, loopback noVNC, durable temp workspace. | Stop/remove managed shared container; prove durable directory behavior separately from disposable desktop state. |

@@ -1,0 +1,54 @@
+---
+title: Installation
+description: Install Helmryth on macOS, Windows, or Ubuntu.
+icon: Download
+---
+
+## Packaged builds
+
+This source tree does not publish installers itself. If you package Helmryth for users, keep the filenames below consistent with your own release channel.
+
+| Platform | Recommended package | Notes |
+|---|---|---|
+| macOS Apple silicon | `Helmryth.dmg` | Signed and notarized. Drag to Applications. |
+| macOS Intel | `Helmryth-intel.dmg` | Signed and notarized. |
+| Windows x64 | `Helmryth-setup.exe` | Per-user installer; Windows signing is optional but recommended. |
+| Ubuntu 24.04 x64 | `Helmryth-amd64.deb` and `Helmryth.AppImage` | The `.deb` is recommended; the AppImage is portable. |
+
+<Callout type="warn" title="Windows SmartScreen">
+  The Windows installer is not code-signed yet. Windows may show “Unknown publisher.” Verify that you downloaded it from your own release channel before choosing **More info → Run anyway**.
+</Callout>
+
+## Install an operator CLI
+
+Helmryth needs at least one supported operator engine installed and signed in. Claude and Codex are the most common starting points.
+
+1. Install the CLI from its official provider.
+2. Run it once in a terminal and complete sign-in.
+3. Restart Helmryth.
+4. Open the model picker. Available engines appear normally; unavailable engines explain what is missing.
+
+See [Operator engines](../providers/index.mdx) for the complete list and explicit path overrides.
+
+## Build from source
+
+Requirements: Node.js 24 or newer, pnpm 10.33.0, and at least one authenticated operator CLI.
+
+```bash
+git clone https://github.com/<your-org>/helmryth.git
+cd helmryth
+corepack enable
+pnpm install --frozen-lockfile
+```
+
+Run the harness, web UI, and Electron shell in separate terminals:
+
+```bash
+pnpm dev:server
+pnpm dev
+pnpm dev:desktop
+```
+
+## Where data lives
+
+Helmryth stores its application data under `~/.helmryth`. Electron window and browser data use the normal per-platform application data directory.

@@ -27,7 +27,7 @@ The original `check:electron` implementation delegated `--check` to the Electron
 - `scripts/check-electron.mjs` now invokes `process.execPath --check` and never resolves or starts the Electron executable.
 - Every module check has a hard `10,000 ms` timeout and reports the offending filename on failure.
 - `scripts/check-electron.test.mjs` proves recursive production-module discovery, nested vendor coverage, test/fixture exclusion, Node-only invocation, timeout wiring, syntax-error reporting, the empty-set failure, and prompt CLI completion: `6/6` tests passed.
-- `pnpm check:electron` completed in `2.82s` and syntax-checked all `44` production `electron/**/*.mjs` and `electron/**/*.cjs` modules—including `electron/vendor/electron-updater.cjs`—without starting the app or touching a product profile. Test, spec, fixture, generated, dependency, and build-output modules are deliberately excluded.
+- `pnpm check:electron` completed in `2.82s` and syntax-checked all `44` production `electron/**/*.mjs` and `electron/**/*.cjs` modules—including the vendored updater bundle that `scripts/bundle-updater.mjs` emits at package time—without starting the app or touching a product profile. Test, spec, fixture, generated, dependency, and build-output modules are deliberately excluded.
 
 Treat any future GUI launch, application-data access, or unbounded wait from this static gate as a P0 test-infrastructure regression.
 

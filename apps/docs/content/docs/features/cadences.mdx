@@ -1,0 +1,27 @@
+---
+title: Cadences and webhooks
+description: Start fresh runs on a schedule or from an external event.
+icon: CalendarClock
+---
+
+## Cadences
+
+A cadence runs once or on selected weekdays. Each run starts a fresh workstream using the selected operator's model, permissions, capabilities, and workbench configuration.
+
+Run receipts distinguish queued, active, waiting, completed, missed, failed, and cancelled work. Helmryth must be running when a local cadence becomes due.
+
+## Webhook triggers
+
+Webhooks start the same queued workstream executor from an external HTTP request. They are independent from cadences and use a dedicated receiver on `127.0.0.1:8800` by default.
+
+The receiver exposes only health and secret hook routes. It does not expose the broader Helmryth API.
+
+Bearer authentication is preferred because it keeps the secret out of URLs and most access logs. A capability URL is available for senders that cannot set headers.
+
+## Reaching a local webhook
+
+To accept events from the public internet, proxy only the webhook receiver through a narrowly configured relay or tunnel. Do not expose the main harness port.
+
+<Callout type="warn" title="Helmryth must remain running">
+  Local cadences and webhook deliveries are not hosted jobs. Closing the desktop app stops the local executor and receiver.
+</Callout>

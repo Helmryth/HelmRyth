@@ -1,0 +1,27 @@
+---
+title: Security model
+description: The boundaries that keep operators, credentials, workbenches, and paired devices scoped.
+icon: ShieldCheck
+---
+
+Helmryth is designed around a local owner, explicit capabilities, and narrow process boundaries. Local-first does not mean risk-free: an operator with capability or workbench access can still act on the resources you grant it.
+
+## Core boundaries
+
+- The harness owns operator processes and listens on loopback.
+- The renderer receives configured-or-not credential state, not secret values.
+- Provider-specific credentials are injected only into the process that needs them.
+- Risky actions become gate cards rather than implicit permission.
+- Local workbench control is a separate opt-in and per-operator selection.
+- Paired phones use a default-deny API allowlist and per-device bearer tokens.
+- Remote workbenches are validated before reuse.
+
+## Your responsibility
+
+- Review gates, especially shell commands, file writes, and actions in connected services.
+- Use dedicated workbenches for untrusted or destructive work.
+- Keep provider accounts and connected capabilities scoped to what an operator needs.
+- Revoke lost companion devices immediately.
+- Keep Helmryth and operator CLIs updated.
+
+Security reports should be filed through the repository's documented security channel rather than disclosed in a public issue before a fix is available.
