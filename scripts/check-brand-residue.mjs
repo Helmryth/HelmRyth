@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, join, relative, resolve } from "node:path";
+import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -409,7 +409,12 @@ export function scanRepository(scanRoot = root) {
       continue;
     }
     if (contents.includes("\0")) continue;
-    const name = relative(scanRoot, path);
+    // Every exemption below is written with forward slashes (docs/qa/,
+    // third_party/playwright-injected/), but `relative` returns the platform
+    // separator — so on Windows nothing matched and the gate reported 163
+    // findings against QA prose it is supposed to exempt. Normalise once, here,
+    // rather than teaching each pattern about backslashes.
+    const name = relative(scanRoot, path).split(sep).join("/");
     contentsByName.set(name, contents);
     const lines = contents.split(/\r?\n/);
     findings.push(...identityFindings(name, lines), ...copyFindings(name, lines));

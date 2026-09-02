@@ -4638,11 +4638,26 @@ describe("hostile and dangling input at the HTTP boundary", () => {
       for (let level = 0; level < depth; level++) node = { a: node };
       return node;
     };
-    const hostile = nested(6_000);
-    const created = await api("POST", "/api/bots", { name: "Nested", deep: hostile });
+    // The hostile body is assembled as text rather than built as an object and
+    // handed to JSON.stringify. stringify recurses once per level too, so the
+    // 6,000-deep probe overflowed inside the test helper on runners with a
+    // smaller default stack than a developer laptop — the request was never
+    // sent and the boundary this test exists to cover was never exercised.
+    const deep = (depth: number) => `{"a":`.repeat(depth) + `{"end":true}` + `}`.repeat(depth);
+    // Same return shape the file's `api` helper declares, so the assertions
+    // below read the parsed body the same way.
+    const postRaw = async (path: string, rawBody: string): Promise<{ status: number; body: any }> => {
+      const res = await fetch(`${BASE}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: BASE },
+        body: rawBody,
+      });
+      return { status: res.status, body: await res.json() };
+    };
+    const created = await postRaw("/api/bots", `{"name":"Nested","deep":${deep(6_000)}}`);
     expect(created.status).toBe(400);
     expect(created.body.error).not.toContain("call stack");
-    expect((await api("POST", "/api/groups", { name: "Nested", memberIds: [], deep: hostile })).status).toBe(400);
+    expect((await postRaw("/api/groups", `{"name":"Nested","memberIds":[],"deep":${deep(6_000)}}`)).status).toBe(400);
     // A body that is merely nested, not absurdly so, still goes through.
     const ordinary = await api("POST", "/api/bots", { name: "Shallow nest", deep: nested(20) });
     expect(ordinary.status).toBe(201);
