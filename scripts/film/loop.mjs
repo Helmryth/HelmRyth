@@ -91,7 +91,8 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()
     : [{ id: args[0], start: Number(args[1]) }];
   const colors = flag("--colors") ? Number(flag("--colors")) : undefined;
 
-  const opts = { from: flag("--from") ?? FINAL, to: flag("--to") ?? `${REPO}/docs/media`, ...(colors ? { colors } : {}) };
+  const opts = { from: flag("--from") ?? FINAL, to: flag("--to") ?? `${REPO}/docs/media` };
+  if (colors) opts.colors = colors;
   let totalKb = 0;
   for (const job of jobs) {
     try {

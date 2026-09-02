@@ -1,6 +1,6 @@
 # System, settings, engines, and identity QA specification
 
-This document is the executable acceptance contract for Helmryth System, first-run identity setup, the operator dossier, model and engine selection, write-only credentials, Helmryth Mobile settings, the Isolated Workbench settings surface, and the Run ledger. It follows [`TEST-CASE-TEMPLATE.md`](./TEST-CASE-TEMPLATE.md). A release is not accepted by visual inspection alone: every mutation must be checked in the rendered UI, at its transport boundary, after restart, and against the persisted or deliberately non-persisted result.
+This document is the executable acceptance contract for Helmryth System, first-run identity setup, the operator dossier, model and engine selection, write-only credentials, Helmryth Mobile settings, the Isolated Workbench settings surface, and the Spend ledger. It follows [`TEST-CASE-TEMPLATE.md`](./TEST-CASE-TEMPLATE.md). A release is not accepted by visual inspection alone: every mutation must be checked in the rendered UI, at its transport boundary, after restart, and against the persisted or deliberately non-persisted result.
 
 ## Source-of-truth inventory
 
@@ -52,7 +52,7 @@ Cleanup after each mutation case: close dialogs; stop or remove disposable test 
 | ID | Surface / route | Control / trigger | Preconditions | Action | Expected result | Negative / edge | Evidence | Priority |
 |---|---|---|---|---|---|---|---|---|
 | SYS-NAV-001 | Score rail/footer → modal | `System` profile control | `S1` | Click or press Enter/Space | One `role=dialog`, `aria-modal=true`, title `Helmryth System`; focus enters dialog; operator dossier, Workbench, Trace, Capabilities overlay close | Repeated activation does not stack dialogs; underlying native surfaces are non-interactive | Manual Playwright trace/screenshots | P1 |
-| SYS-NAV-002 | Modal section rail | `System`, `Connections`, `Engines`, `Helmryth Mobile`, `Workbench`, `Run ledger` | Modal open | Activate each item by mouse and keyboard | Exact heading and owning content render; selected item alone has `aria-current=page`; `appSettingsSection` persists while modal stays open | Rapid section switching never shows mixed content or loses unsaved local draft in a still-mounted owner unexpectedly | Manual + reducer test | P1 |
+| SYS-NAV-002 | Modal section rail | `System`, `Connections`, `Engines`, `Helmryth Mobile`, `Workbench`, `Spend ledger` | Modal open | Activate each item by mouse and keyboard | Exact heading and owning content render; selected item alone has `aria-current=page`; `appSettingsSection` persists while modal stays open | Rapid section switching never shows mixed content or loses unsaved local draft in a still-mounted owner unexpectedly | Manual + reducer test | P1 |
 | SYS-NAV-003 | System search | `Search Helmryth System` / `Find a control` | Modal open | Search labels and every keyword: identity, email, appearance, analytics, updates, capabilities, trace, keys, services, box, vps, models, providers, runtime, cli, phone, pair, relay, vm, virtual, tokens, cost, billing | Case-insensitive substring result contains only matching destinations; if current section disappears, first visible result becomes active | Leading/trailing spaces ignored; search never examines or reveals secret values | Manual parameterized browser test | P1 |
 | SYS-NAV-004 | System search | No-result copy | Modal open | Enter `nonexistent-control` | Exact guidance: `No System section matches “nonexistent-control”. Try “Connections” or “Workbench”.`; no content is silently relabeled | Clearing restores all six sections and preserves a valid current section | Manual screenshot at 390/768/1440 | P2 |
 | SYS-NAV-005 | System search/dialog | Escape | Search focused | Press Escape with non-empty query, then again | First Escape clears only query and keeps modal; second closes modal | Escape propagation does not close on the first press | Manual keyboard trace | P1 |
@@ -175,15 +175,15 @@ Cleanup after each mutation case: close dialogs; stop or remove disposable test 
 | SYS-WBK-012 | Boundaries | `Technical boundaries` and paths | Any status | Expand | Correct shared/dedicated isolation, loopback, durable workspace, 4 GB/2 CPU/512-process claims match actual runtime inspect output | Paths wrap and remain non-secret; no credential helper contents | Manual runtime inspection | P0 |
 | SYS-WBK-013 | Destructive gate accessibility | Recreate/delete alertdialog | Gate open | Tab, Shift+Tab, Escape, 390 px | Initial focus Keep; focus trapped; Escape cancels; trigger regains focus; both actions full-width on narrow layout | No backdrop shortcut bypasses confirmation | Manual accessibility | P1 |
 
-## Run ledger destination
+## Spend ledger destination
 
 | ID | Surface / route | Control / trigger | Preconditions | Action | Expected result | Negative / edge | Evidence | Priority |
 |---|---|---|---|---|---|---|---|---|
-| SYS-USE-001 | System → Run ledger | Empty state | No settled operator steps | Open | Exact copy: figures appear after first completed operator step; no fake zeros/charges | Hidden/in-flight/failed-only usage omitted | Automated: `src/lib/usage.test.ts`; manual | P2 |
+| SYS-USE-001 | System → Spend ledger | Empty state | No settled operator steps | Open | Exact copy: figures appear after first completed operator step; no fake zeros/charges | In-flight and failed-only usage omitted; archived operators stay counted | Automated: `src/lib/usage.test.ts`; manual | P2 |
 | SYS-USE-002 | Ledger rows | Populated state | `S1` | Open | Visible operators with turns only; deterministic sigil/name; steps, formatted token total, and finite reported cost/`—` | Hidden operator omitted; NaN/Infinity/negative-invalid cost never formatted as money | Usage tests | P1 |
 | SYS-USE-003 | Ledger ordering/totals | Multiple billing modes | `S1` | Compare source usage | Rows sort finite cost descending then token volume; All operators sums exact input/output/cache/turn/cost | Missing cost sorts last and does not poison total | Usage tests | P1 |
 | SYS-USE-004 | Token/cost explanation | Cached input/subscription/mixed | Populated | Hover token figure and read footnotes | Title contains exact split; cached re-read text only when non-zero; subscription cost called equivalent; mixed says as each engine reports | No implication that equivalent subscription amount is an actual charge | Manual copy review | P1 |
-| SYS-USE-005 | Operator dossier ledger | `All operators →` | Operator has usage | Click | Opens Helmryth System directly on `Run ledger` and closes dossier | Zero-turn operator has no ledger card/link | Manual reducer/UI | P1 |
+| SYS-USE-005 | Operator dossier ledger | `All operators →` | Operator has usage | Click | Opens Helmryth System directly on `Spend ledger` and closes dossier | Zero-turn operator has no ledger card/link | Manual reducer/UI | P1 |
 
 ## Operator dossier: identity, permissions, runtime, memory, voice
 

@@ -15,7 +15,7 @@ This chapter enumerates every current backend route exactly once. It restores th
 
 ## Global gates and invariants
 
-- Main-server routes are loopback-only and reject a non-loopback `Host` with `403 forbidden: loopback host required`.
+- Main-server routes accept only the exact `127.0.0.1:<port>` `Host` authority. Every other authority, including the loopback aliases `localhost` and `[::1]`, is rejected with `403 forbidden: exact loopback authority required`.
 - Main-server routes reject disallowed `Origin` with `403 forbidden: cross-origin request`.
 - The main-server event stream route must emit a hello frame first, honor `Last-Event-ID` over a stale `?since=` cursor, and return `resumed: false` when the replay window cannot safely satisfy the request.
 - `/api/internal/*` routes additionally require the boot-token bearer checked by `authorizedComms`; failures return `401 unauthorized`.

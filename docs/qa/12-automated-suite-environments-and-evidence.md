@@ -93,6 +93,12 @@ Any P0 failure stops the release candidate until diagnosed. P1/P2 commands may c
 
 These are the commands executed in this pass on August 30–31, 2026. One full pre-fix umbrella run failed on the `env-path` race; after the generation-guard and final webhook-preview repairs, the final rerun below passed and is the release truth.
 
+> **Point-in-time record — do not restate these figures as current.** This snapshot is left exactly as the August
+> 30–31, 2026 run produced it, so it can still be used as evidence for that commit. Tree-tracking counts have since
+> drifted: regression tests added after this run put `rootTestFiles` at `273`, and the root Vitest file and test
+> totals moved with them. Treat the `pnpm check:qa-docs` and `pnpm test` rows below as history, and re-run both for
+> the current checkout; `scripts/check-qa-coverage.mjs` holds the census the gate actually enforces.
+
 | Command | Result | Key retained evidence |
 |---|---|---|
 | `pnpm lint` | Passed | `oxlint .` exited `0` with no diagnostics |

@@ -39,7 +39,7 @@ const probe = (file) => Number(execFileSync("ffprobe",
   ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" }).trim());
 
 const built = [];
-for (const [index, film] of films.entries()) {
+for (const film of films) {
   const raw = `${RAW}/${film.id}.webm`;
   if (!existsSync(raw)) { console.log(`  skip ${film.id} (no footage)`); continue; }
 

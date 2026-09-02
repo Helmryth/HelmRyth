@@ -32,6 +32,13 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # electron/vendor/ holds an esbuild bundle of the electron-updater
+      # dependency. It is generated, so it is gitignored and absent from a fresh
+      # checkout — but check-electron treats it as part of the packaged runtime
+      # and asserts it is present. Without this step the runner counts 46
+      # modules where the check expects 47, and every CI run fails on a clean
+      # clone while passing on any machine that has ever packaged the app.
+      - run: pnpm build:updater
       - run: pnpm check:brand
       - run: pnpm typecheck
       - run: pnpm test
