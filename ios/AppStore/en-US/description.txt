@@ -1,0 +1,26 @@
+Helmryth Mobile is the private iPhone surface for Helmryth on your workbench.
+
+Keep your operators moving when you step away from your desk:
+
+• Answer gates and questions
+• Follow replies as they stream
+• Send messages to operators and crews
+• Switch and manage run contexts
+• Search the complete local transcript history
+• Edit messages and move between conversation versions
+• Share transcripts as Markdown or JSON
+• Watch an operator's workbench when you need context
+
+YOUR WORKBENCH STAYS IN CHARGE
+
+Helmryth Mobile connects to Helmryth Reach on your own workbench. Your operator transcripts remain in Helmryth's local storage; the optional hosted connection transports them to your workbench without creating a developer-hosted transcript copy.
+
+PAIR ONCE, REVOKE ANY TIME
+
+Pair with a short-lived code from Helmryth's Reach panel. The workbench stores only a hash of the phone credential and lets you revoke the device at any time.
+
+USE IT AT HOME OR AWAY
+
+Bonjour finds your workbench on a trusted local network. For remote access, use Tailscale on both devices or enable the optional email-verified HTTPS connection in Helmryth's desktop Reach settings.
+
+Requires Helmryth running on a Mac, Windows, or Linux workbench. Tailscale is optional and is not affiliated with Helmryth.

@@ -1,0 +1,33 @@
+# TestFlight and App Store release
+
+The app is native Swift and uses XcodeGen; EAS commands do not apply.
+
+## One-time Apple setup
+
+1. Enrol in the Apple Developer Program.
+2. Register the bundle IDs `com.helmryth.app` and `com.helmryth.app.widgets` (or change them in `project.yml` before the first upload).
+3. Create the matching app in App Store Connect with the name **Helmryth Mobile**, primary category **Productivity**, and a unique SKU.
+4. Create or select an Apple Distribution certificate and App Store provisioning profile.
+5. Add the review contact details in App Store Connect; do not commit private contact data or App Store Connect keys.
+
+## Before every upload
+
+1. Run `swift test` from `ios/` and the repository test suite.
+2. Generate the Xcode project with `../scripts/prepare-xcodegen.sh --run generate` from `ios/`.
+3. Set `DEVELOPMENT_TEAM` for the Release configuration in Xcode or on the archive command line.
+4. Increment `CURRENT_PROJECT_VERSION` for every upload. Update `MARKETING_VERSION` only for a new App Store version.
+5. Archive a generic iOS device build and validate it in Xcode Organizer.
+6. Upload to App Store Connect and distribute to internal TestFlight testers first.
+7. Complete a real-iPhone pass for pairing, Bonjour permission, Keychain restore, Tailscale, optional hosted HTTPS, approvals, background/foreground reconciliation, sign-out/revocation, and transcript sharing.
+8. After internal testing, submit to an external TestFlight group before App Review.
+
+## App Store Connect
+
+- Copy the localized text from `en-US/`.
+- Use `privacy-answers.md` and verify it still matches the binary.
+- Use `review-notes.md`, adding a real review contact in App Store Connect.
+- Support URL: required owner-controlled production URL. Do not submit with a placeholder or inherited repository link.
+- Privacy policy URL: required owner-controlled production URL. Do not submit with a placeholder or inherited repository link. For local review, use `docs/ios-privacy.md`.
+- Choose manual release for 1.0; enable a phased release after the first production build is stable.
+
+The protected workflow `.github/workflows/release-ios.yml` now fails closed before archive unless the Apple team ID, bundle IDs, App Store Connect API key, Apple Distribution certificate, and both App Store provisioning profiles are present in the `release-production` environment. The unsigned simulator CI still proves compilation only; the release lane is the archive/export/upload path.
