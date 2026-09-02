@@ -1,0 +1,178 @@
+appId: com.helmryth.app
+productName: Helmryth
+artifactName: Helmryth-${version}-${arch}.${ext}
+
+protocols:
+  - name: Helmryth capability install
+    schemes: [helmryth]
+
+# Publishing is intentionally disabled until a Helmryth-owned release host,
+# signing identity, and update repository have been provisioned. Packaging
+# scripts already pass `--publish never`; omitting `publish` also prevents a
+# personal or inherited repository from being baked into installed clients.
+# Guarded release scripts validate HELMRYTH_RELEASE_REPO and generate a private
+# temporary config that adds exactly that destination; local builds never do.
+
+directories:
+  buildResources: build
+  output: release
+
+# electron-builder makes copied directories group-writable by default. The
+# Linux CUA trust boundary requires root-owned package ancestors to be 0755.
+afterPack: ./scripts/after-pack.mjs
+
+# The app is three self-contained pieces, none needing node_modules at
+# runtime: the Electron main/preload (plain .mjs/.cjs), the built UI
+# (Vite → ui/), and the compiled harness server (tsc → server/), both
+# shipped in Resources and run on Electron's own Node via
+# ELECTRON_RUN_AS_NODE.
+files:
+  - electron/**
+  - "!electron/**/*.test.*"
+  - "!electron/resources/speech-helper"
+  - "!electron/resources/speech-helper.swift"
+  - "!electron/resources/speech-helper-Info.plist"
+  - "!electron/resources/Helmryth Speech.app/**"
+  - "!electron/resources/recorder-helper"
+  - "!electron/resources/recorder-helper.swift"
+  - "!electron/resources/recorder-helper-Info.plist"
+  - "!electron/resources/Helmryth Recorder.app/**"
+  - "!**/node_modules/**"
+  - package.json
+
+asar: true
+
+extraResources:
+  # Ship the app's own license terms in every desktop distribution.
+  - from: LICENSE
+    to: licenses/Helmryth-LICENSE.txt
+  - from: NOTICE
+    to: licenses/Helmryth-NOTICE.txt
+  # cloudflared is distributed under Apache-2.0 as a separate executable.
+  # Helmryth itself uses the same full license text; ship another named
+  # copy so the third-party executable's terms remain unambiguous.
+  - from: LICENSE
+    to: licenses/cloudflared-LICENSE.txt
+  - from: third_party/cloudflared/README.md
+    to: licenses/cloudflared-README.md
+  - from: dist
+    to: ui
+  - from: dist-server
+    to: server
+  # the companion sidecar — a separate process because it is the only part
+  # of the app that listens off this machine, and it stays off until asked
+  - from: dist-companion
+    to: companion
+  - from: skills
+    to: skills
+  - from: dist-native/android-platform-tools
+    to: android-platform-tools
+
+mac:
+  # Two single-arch artifacts rather than one universal binary: the app is
+  # ~177 MB per arch, and universal would make every user download both halves.
+  # A future provisioned updater will pick by filename (arm64-marked files on
+  # Apple silicon, unmarked ones on Intel).
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # the dictation helper is a signed background app — Windows and Linux never see it
+  extraResources:
+    - from: electron/resources/Helmryth Speech.app
+      to: Helmryth Speech.app
+    - from: electron/resources/Helmryth Recorder.app
+      to: Helmryth Recorder.app
+    # CUA must live outside ASAR. prepare-cua stages the signed executable and
+    # a self-contained JS/native SDK bundle selected for macOS arm64.
+    # ${arch} resolves per built arch — each bundle carries its own natives
+    - from: dist-native/${arch}/cua-driver
+      to: cua-driver
+    - from: dist-native/${arch}/cua-sdk
+      to: cua-sdk
+    - from: dist-native/cloudflared/darwin-${arch}/cloudflared
+      to: cloudflared/cloudflared
+  extendInfo:
+    NSMicrophoneUsageDescription: Helmryth uses the microphone for voice dictation into the composer.
+    NSSpeechRecognitionUsageDescription: Helmryth transcribes your voice on-device to type messages for you.
+    NSAccessibilityUsageDescription: Helmryth uses Accessibility when you let an operator control this Mac.
+    NSScreenCaptureUsageDescription: Helmryth uses Screen Recording so operators can see this Mac before acting.
+  # Notarization runs manually after the build with notarytool + staple.
+  notarize: false
+
+dmg:
+  sign: true
+  # ${arch} is load-bearing: without it the x64 dmg silently overwrites
+  # the arm64 one when both arches build (this section overrides both the
+  # top-level and mac-level artifactName, so it must carry the arch itself)
+  artifactName: Helmryth-${version}-${arch}.dmg
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: zip
+      arch: x64
+  icon: build/icon.ico
+  extraResources:
+    - from: dist-native/cloudflared/win32-x64/cloudflared.exe
+      to: cloudflared/cloudflared.exe
+  # Local packaging stays unsigned and publish-free on purpose. The protected
+  # release overlay injects Authenticode settings, publisherName, and the
+  # release-only managed-services config at packaging time.
+
+nsis:
+  oneClick: true
+  perMachine: false
+  shortcutName: Helmryth
+  # Versioned, like the .dmg. The README's /latest/download/ button needs a
+  # STABLE filename, so ship a second copy named Helmryth-setup.exe on the
+  # release — the same trick as Helmryth.dmg beside Helmryth-${version}.dmg.
+  artifactName: Helmryth-${version}-setup.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch: x64
+    - target: deb
+      arch: x64
+  # Keep the vector source in the freedesktop scalable icon hierarchy. A
+  # lone 1024px PNG is not indexed by GNOME's hicolor theme on Ubuntu 24.04.
+  icon: build/icon.svg
+  category: Utility
+  executableName: helmryth
+  synopsis: The work moves. You hold the helm.
+  description: A private operating system for autonomous work.
+  maintainer: Helmryth Contributors
+  vendor: Helmryth
+  syncDesktopName: true
+  # The reviewed x64 CLI runtime is staged before packaging and remains
+  # outside ASAR so executable modes and adjacent sidecars are preserved.
+  extraResources:
+    - from: dist-native/cua-linux-x64
+      to: cua-linux-x64
+    - from: dist-native/cloudflared/linux-x64/cloudflared
+      to: cloudflared/cloudflared
+  desktop:
+    entry:
+      Name: Helmryth
+      Comment: The work moves. You hold the helm.
+      Keywords: Operators;Workstreams;Automation;Productivity;
+
+deb:
+  packageCategory: utils
+  priority: optional
+  # dpkg can preserve legacy directory modes during an upgrade. This
+  # idempotent hook repairs only the exact package-owned CUA path.
+  afterInstall: build/linux-after-install.sh
+
+# Static AppImage runtime: Ubuntu 24.04 can launch it without legacy FUSE 2.
+toolsets:
+  appimage: "1.0.3"
