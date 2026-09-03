@@ -137,13 +137,10 @@ function markdownPackage(markdown: string): JsonObject {
   }
   const metadata = jsonObjectSchema.safeParse(yaml);
   if (!metadata.success) throw new Error("This Markdown package is missing its crew blueprint.");
-  // `botmrr` is the pre-rebrand spelling of this marker. Packages exported
-  // before the rename still carry it, so both are accepted on read.
-  const declared = metadata.data.helmrythPackage ?? metadata.data.botmrr;
+  const declared = metadata.data.helmrythPackage;
   if (declared !== 1) throw new Error("This portable Markdown package version is not supported.");
   const pkg: JsonObject = { ...metadata.data };
   delete pkg.helmrythPackage;
-  delete pkg.botmrr;
   return { format: "helmryth.package", version: 1, package: pkg };
 }
 
