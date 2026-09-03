@@ -1,10 +1,15 @@
+import { join, sep, win32 } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   copyFindings,
   identityFindings,
   migrationContractFindings,
+  repoRelative,
+  SELF_NAME,
   shouldSkipDirectory,
+  toPosixPath,
 } from "./check-brand-residue.mjs";
 
 // The strings these cases feed the gate are the very ones it must reject, so
@@ -179,6 +184,37 @@ describe("brand residue migration contracts", () => {
   it("does not treat an unlisted inherited key as compatibility", () => {
     expect(identityFindings("src/lib/cache.ts", ['const KEY = "omb-cache";'])).toMatchObject([
       { label: "old short prefix" },
+    ]);
+  });
+});
+
+describe("path spelling", () => {
+  it("spells a platform path the way every exemption in the gate is written", () => {
+    // Built from `sep` so the assertion is about the platform running it, not
+    // about a forward slash that POSIX would have produced anyway.
+    expect(toPosixPath(["docs", "qa", "01-desktop-shell.md"].join(sep))).toBe("docs/qa/01-desktop-shell.md");
+    expect(repoRelative(join(sep, "repo"), join(sep, "repo", "scripts", "gate.mjs"))).toBe("scripts/gate.mjs");
+
+    // The failing case was Windows-only, so assert it explicitly rather than
+    // wait for a Windows runner: a backslash path is the one this gate got
+    // wrong, and it must normalise on the machine running these tests too.
+    expect(toPosixPath("scripts\\check-brand-residue.mjs", win32.sep)).toBe("scripts/check-brand-residue.mjs");
+    expect(toPosixPath("docs\\qa\\01-desktop-shell.md", win32.sep)).toBe("docs/qa/01-desktop-shell.md");
+  });
+
+  it("exempts its own source under the name the scan produces for it", () => {
+    // The regression this pins: the scanned name was normalised and SELF_NAME
+    // was not, so on Windows `name === SELF_NAME` never held, the gate read its
+    // own detection patterns and reported sixteen findings against itself on
+    // every CI run. Both sides go through one helper now.
+    expect(SELF_NAME).toBe("scripts/check-brand-residue.mjs");
+
+    // The same bytes under two names: exempt as this file, a finding as any
+    // other. Without the second half the first proves only that nothing fires.
+    const line = retired("RG93bmxvYWQgT3Blbk1hdXNCb3Q=");
+    expect(identityFindings(SELF_NAME, [line])).toEqual([]);
+    expect(identityFindings("scripts/some-other-gate.mjs", [line])).toMatchObject([
+      { label: "old product name" },
     ]);
   });
 });
