@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { existsSync, lstatSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -168,6 +168,39 @@ describe("install → review → enable lifecycle", () => {
       revision: contentChanged.reviewRevision,
       acknowledged: true,
     })).toMatchObject({ status: 409 });
+  });
+
+  it("preserves a torn manifest instead of silently discarding it", () => {
+    // skills.json was written with writeFileSync, which truncates in place, so
+    // a crash or a full disk mid-write leaves a partial file. readManifest
+    // treated "will not parse" the same as "no skills yet" and returned empty
+    // state, which meant: the UI showed zero skills, every SKILL.md on disk was
+    // stranded (removeSkill needs a manifest entry to delete one), the person's
+    // review acknowledgement was gone, and the next enable overwrote the only
+    // evidence of any of it. Silently, with nothing logged.
+    const installed = installSkill(bot, "src", [{ path: "SKILL.md", content: SKILL("review") }]);
+    if ("error" in installed) throw new Error(installed.error);
+    expect(setSkillEnabled(bot, "review", true, {
+      revision: installed.reviewRevision,
+      acknowledged: true,
+    })).toMatchObject({ enabled: true });
+
+    const skillsPath = join(workspaceDir(bot), "skills");
+    const manifestFile = join(skillsPath, "skills.json");
+    const whole = readFileSync(manifestFile, "utf8");
+    writeFileSync(manifestFile, whole.slice(0, Math.floor(whole.length / 2)));
+
+    // The manifest still cannot be read, so this bot reports no skills. That
+    // part does not change — it is what quarantineCorruptFile documents as the
+    // outcome, and inventing a manifest would be worse than admitting there
+    // isn't one.
+    expect(listSkills(bot)).toHaveLength(0);
+    // What changes is that the bytes survive, under a timestamped name and with
+    // a line on stderr, so the enabled set and the review acknowledgement can be
+    // restored by hand instead of being overwritten by the next save.
+    expect(readdirSync(skillsPath).filter((name) => name.startsWith("skills.json.corrupt-")))
+      .toHaveLength(1);
+    expect(existsSync(join(skillsPath, "review", "SKILL.md"))).toBe(true);
   });
 
   it("skips non-markdown files and records them, and blocks duplicate names", () => {

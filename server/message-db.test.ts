@@ -114,6 +114,26 @@ describe("message-db", () => {
     expect(thread.activeLeafId).toBeNull();
   });
 
+  it("finds a message whose only capital is not an ASCII letter", () => {
+    // SQLite's `lower()` folds ASCII only, so `lower('Ärger')` is `Ärger`,
+    // while the needle was folded in JavaScript to `ärger`. The two could never
+    // meet: this message was unreachable under every casing of the query, and
+    // /api/search answered 200 with an empty list — indistinguishable from the
+    // message not existing. Every case below failed before `unicode_lower`.
+    insertMessage("t9", msg("m1", "Ärger mit dem Café in Zürich"));
+    insertMessage("t9", msg("m2", "ÅTERKOMMANDE möte om ÖVERSIKT"));
+
+    for (const query of ["Ärger", "ärger", "ÄRGER", "café", "CAFÉ", "zürich"]) {
+      expect(searchMessages(query, 40, "t9"), query).toHaveLength(1);
+    }
+    for (const query of ["återkommande", "ÅTERKOMMANDE", "Möte", "översikt"]) {
+      expect(searchMessages(query, 40, "t9"), query).toHaveLength(1);
+    }
+    // Still a search and not a match-everything: a word that is not there
+    // stays absent.
+    expect(searchMessages("Ärgerlich", 40, "t9")).toEqual([]);
+  });
+
   it("search is case-insensitive, escapes LIKE wildcards, and snips long text", () => {
     insertMessage("t5", msg("m1", "Deploy with `railway up --service workers` and verify the heartbeat"));
     insertMessage("t5", msg("m2", "totally unrelated"));

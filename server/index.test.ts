@@ -4627,6 +4627,54 @@ describe("computer control API (who is driving)", () => {
 });
 
 describe("hostile and dangling input at the HTTP boundary", () => {
+  it("keeps a character whose bytes straddle a socket chunk boundary intact", async () => {
+    // Node's HTTP parser hands the body over in chunks — roughly 64 KB each,
+    // well inside the 1 MB cap — and a chunk boundary can land in the middle of
+    // a multi-byte character. `readBody` accumulated with `data += chunk` over
+    // raw Buffers, so each chunk was decoded on its own and both halves of a
+    // split character became U+FFFD. That is legal inside a JSON string, so the
+    // request answered 201 and the mangled text was persisted with no error
+    // anywhere. This drives the boundary deliberately rather than waiting for a
+    // large enough body to hit it by chance.
+    const name = "Ship 🚀 日本語 now";
+    const payload = Buffer.from(JSON.stringify({ name }), "utf8");
+    const cut = payload.indexOf(Buffer.from("🚀", "utf8")) + 2;
+    expect(cut).toBeGreaterThan(2);
+
+    const created = await new Promise<{ status: number; body: any }>((resolve, reject) => {
+      const post = request(
+        {
+          host: "127.0.0.1",
+          port: PORT,
+          path: "/api/bots",
+          method: "POST",
+          headers: { "content-type": "application/json", origin: BASE },
+        },
+        (res) => {
+          res.setEncoding("utf8");
+          let text = "";
+          res.on("data", (chunk) => { text += chunk; });
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body: JSON.parse(text) }));
+        },
+      );
+      post.on("error", reject);
+      // Two writes with a gap: the request is chunked, so the server sees two
+      // `data` events with the character split between them.
+      post.write(payload.subarray(0, cut));
+      setTimeout(() => post.end(payload.subarray(cut)), 25);
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.bot.name).toBe(name);
+    expect(created.body.bot.name).not.toContain("\uFFFD");
+
+    // And the same bytes survive the round trip through storage, not just the
+    // echo in the create response.
+    const listed = await api("GET", "/api/bots");
+    expect(listed.body.bots.find((bot: any) => bot.id === created.body.bot.id)?.name).toBe(name);
+    await api("DELETE", `/api/bots/${created.body.bot.id}`);
+  });
+
   it("answers a deeply nested body with 400 instead of overflowing the stack", async () => {
     // Every mutation route validates its body through z.json(), which
     // descends once per level of nesting, and safeParse does not catch a

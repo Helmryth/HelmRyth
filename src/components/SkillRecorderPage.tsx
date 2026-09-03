@@ -218,9 +218,21 @@ export function SkillRecorderPage() {
       }
     };
     window.addEventListener(TRANSCRIPTION_STATUS_EVENT, onStatus);
-    window.helmryth?.transcription?.status()
-      .then((status) => alive && setTranscriptionReadiness(status.configured ? "ready" : "unavailable"))
-      .catch(() => alive && setTranscriptionReadiness("unavailable"));
+    // Resolve the missing-bridge case before calling, rather than relying on
+    // optional chaining to carry it. `a?.b?.c().then().catch()` short-circuits
+    // the WHOLE chain when `a` is nullish, so neither handler runs and the
+    // readiness state never leaves "loading" — the page then shows "Checking
+    // transcription status…" forever, with recording disabled and no way out.
+    // window.helmryth exists only behind the Electron preload bridge, so every
+    // browser dev shell hits exactly that dead end.
+    const transcription = window.helmryth?.transcription;
+    if (!transcription) {
+      setTranscriptionReadiness("unavailable");
+    } else {
+      transcription.status()
+        .then((status) => alive && setTranscriptionReadiness(status.configured ? "ready" : "unavailable"))
+        .catch(() => alive && setTranscriptionReadiness("unavailable"));
+    }
     return () => {
       alive = false;
       window.removeEventListener(TRANSCRIPTION_STATUS_EVENT, onStatus);

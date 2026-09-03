@@ -4138,6 +4138,16 @@ function bodyNestingExceeds(root: JsonBoundaryInput, limit: number): boolean {
 
 function readBody(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
+    // Decode as text, not per chunk. Without this every `data` event arrives as
+    // a Buffer and `data += c` decodes it on its own, so a character whose UTF-8
+    // bytes straddle a chunk boundary becomes U+FFFD on both sides. The body
+    // still parses — a replacement character is valid inside a JSON string — so
+    // the request returns 200 and the mangled text is persisted. Node's HTTP
+    // parser emits roughly 64 KB chunks, which is well inside the 1 MB cap
+    // below, so any sufficiently long body carrying emoji or CJK can hit it.
+    // `Buffer.byteLength` on the decoded string still counts UTF-8 bytes, so
+    // the cap is unaffected.
+    req.setEncoding("utf8");
     let data = "";
     let bytes = 0;
     let done = false;
@@ -4632,18 +4642,30 @@ const server = createServer(async (req, res) => {
         const connectionState: Record<string, { connected?: boolean }> = await composio.connectionStatus(cfg, slugs).catch(() => ({}));
         const messageIds: string[] = [];
         for (const slug of slugs) {
-          const existing = store.messagesFor(threadId).find(
-            (message) =>
-              hasConnector(message) &&
-              message.connector.resumeKey === resumeKey &&
-              message.connector.slug === slug &&
-              (!owner.group || message.from?.botId === botId),
-          );
+          const isSameCard = (message: Message) =>
+            hasConnector(message) &&
+            message.connector.resumeKey === resumeKey &&
+            message.connector.slug === slug &&
+            (!owner.group || message.from?.botId === botId);
+          const existing = store.messagesFor(threadId).find(isSameCard);
           if (existing) {
             messageIds.push(existing.id);
             continue;
           }
           const toolkit = await composio.toolkitCard(cfg, slug);
+          // Look again on the far side of the await. `toolkitCard` reaches the
+          // network, so two identical requests can both clear the check above
+          // before either appends, and the transcript ends up with two of the
+          // same card. That is not cosmetic: maybeResumeConnectors below holds
+          // the paused turn until EVERY matching card is resumed, so the run
+          // stays parked until the person answers both. The sibling route at
+          // /api/internal/request-credential has no await between its check and
+          // its append, which is why it never needed this.
+          const raced = store.messagesFor(threadId).find(isSameCard);
+          if (raced) {
+            messageIds.push(raced.id);
+            continue;
+          }
           const connected = connectionState[slug]?.connected === true;
           const messageInput: Omit<Message, "id" | "at"> = {
             role: "bot",

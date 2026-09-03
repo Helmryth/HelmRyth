@@ -33,6 +33,11 @@ const dead = () => {
 conn.on("error", dead);
 conn.on("close", dead);
 
+// Newline framing survives raw Buffers because \n is single-byte, but the JSON
+// between the newlines does not: a multi-byte character split across chunks
+// decodes to U+FFFD. This socket carries permission asks, so that text is what
+// the human reads on the approval card before deciding.
+conn.setEncoding("utf8");
 let connBuf = "";
 conn.on("data", (chunk) => {
   connBuf += chunk;
@@ -144,6 +149,7 @@ async function handle(msg: any) {
   }
 }
 
+process.stdin.setEncoding("utf8");
 let inBuf = "";
 process.stdin.on("data", (chunk) => {
   inBuf += chunk;
