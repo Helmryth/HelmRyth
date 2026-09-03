@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { loadOrQuarantine, quarantineCorruptFile, writeFileAtomic } from "./atomic.ts";
+import { HAS_POSIX_FILE_MODES } from "./testing/platform.ts";
 
 describe("writeFileAtomic", () => {
   let dir: string;
@@ -97,7 +98,7 @@ describe("quarantineCorruptFile", () => {
     expect(quarantineCorruptFile(join(dir, "absent.json"), "", new Error("nope"))).toBeNull();
   });
 
-  it("keeps the private mode on the preserved copy", () => {
+  it.skipIf(!HAS_POSIX_FILE_MODES)("keeps the private mode on the preserved copy", () => {
     const p = join(dir, "groups.json");
     writeFileAtomic(p, "{oops");
     const target = quarantineCorruptFile(p, "{oops", new Error("bad"))!;

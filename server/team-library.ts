@@ -488,7 +488,7 @@ function safeSegment(value: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(value) && value !== "." && value !== "..";
 }
 
-const LEGACY_CREW_FILENAMES = ["botmrr.md", "team.md", "team.sigilteam.json"] as const;
+const LEGACY_CREW_FILENAMES = ["team.md"] as const;
 
 /** Resolve only public GitHub Markdown playbooks and JSON crew files.
  * Other hosts never reach server fetch. */

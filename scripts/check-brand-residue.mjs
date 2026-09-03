@@ -1,11 +1,24 @@
-#!/usr/bin/env node
-
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const self = relative(root, fileURLToPath(import.meta.url));
+
+/** A path in the one spelling every exemption in this file is written in.
+ *
+ * The exemptions below use forward slashes (`docs/qa/`,
+ * `third_party/playwright-injected/`) but `relative` returns the platform
+ * separator, so on Windows none of them matched and the gate reported 163
+ * findings against QA prose it exists to exempt. Normalising only the scanned
+ * side then produced the opposite failure: `self` still held backslashes, the
+ * `name === self` exemption never fired, and the gate scanned its own source
+ * and reported its own detection patterns. Both sides go through here. */
+export const toPosixPath = (value, separator = sep) => value.split(separator).join("/");
+
+/** `to` expressed relative to `from`, spelled the same way on every platform. */
+export const repoRelative = (from, to) => toPosixPath(relative(from, to));
+
+export const SELF_NAME = repoRelative(root, fileURLToPath(import.meta.url));
 
 const SOURCE_ROOTS = [
   ".claude",
@@ -55,9 +68,9 @@ const SKIP_DIRECTORIES = new Set([
 // Retained legal text — license, notice, and attribution copy that must stay
 // byte-for-byte. Anchored to the FILE name on purpose: the previous pattern
 // also matched the `third_party` path SEGMENT, which exempted that whole tree
-// and let 670 stale `openmausbot:` SBOM property names plus a stale
-// `OMB_CLOUDFLARED_ARCHIVE_DIR` instruction survive a rebrand the gate
-// reported as clean. Our own metadata under third_party/ is not legal text.
+// and let 670 stale SBOM property names plus a stale archive-directory
+// instruction survive a rebrand the gate reported as clean. Our own metadata
+// under third_party/ is not legal text.
 const LEGAL_TEXT_FILE =
   /(?:^|\/)(?:LICENSE|LICENCE|COPYING|NOTICE|LEGAL_PROVENANCE|PROVENANCE|ATTRIBUTION|THIRD_PARTY_LICENSES|THIRD_PARTY_NOTICES|Inter-OFL-[\d.]+)(?:\.[A-Za-z0-9.]+)?$/i;
 // Vendored upstream source. Its identity must still be ours to police, but its
@@ -70,21 +83,29 @@ const TEST_FILE = /(?:^|\/)(?:(?:Tests|__tests__|fixtures|test|tests|testing)\/|
 const NON_COPY_SURFACE = /^(?:\.claude\/|\.github\/workflows\/|scripts\/|skills\/)/;
 const MAX_SCANNED_FILE_BYTES = 2_000_000;
 
+// The retired identity's names, domains and namespaces are stored here encoded,
+// never as literals. This file ships in the repository, so spelling them out
+// would reintroduce the exact strings the gate exists to keep out — the check
+// would then be the last place they survive. Decoding happens once at load and
+// the matching behaviour is unchanged.
+//
+// To read or extend a rule:
+//   node -e 'console.log(Buffer.from("<base64>","base64").toString())'
+//   node -e 'console.log(Buffer.from(String.raw`<regex source>`).toString("base64"))'
+const retired = (encoded, flags) => new RegExp(Buffer.from(encoded, "base64").toString("utf8"), flags);
+
 const IDENTITY_RULES = [
-  ["old product name", /\b(?:Open[ _-]?Maus(?:Bot)?|MausBot|Open?[ _-]?GrokBot|Grok[ _-]?Bot)\b/i],
-  ["old mascot identity", /\b(?:SupaMaus|SupaSigil|MAUS(?:_[A-Z0-9_]+)?)\b/i],
-  ["old bundle, domain, release, or scheme", /(?:openmaus(?:bot)?|opengrok(?:bot)?|mausbot)(?=[-_.:\x2f\\])/],
-  ["old storage namespace", /(?:^|[\\/])\.openmaus(?:[\\/]|$)|\bopenmaus\.(?:json|db|sqlite)\b/i],
-  ["old environment namespace", /\b(?:OPENMAUS|OPENGROK|MAUSBOT|OGB|OMB)_[A-Z0-9_]+\b/],
-  ["old MCP namespace", /\bmcp__ogb(?:__|\b)/i],
-  ["old short prefix", /(?:^|[^a-z0-9])omb[-_][a-z0-9]/],
-  ["old crew filename", /\bteam\.sigilteam\.json\b/i],
-  ["old manifest format", /\b(?:openmaus|helmryth)\.team\b/i],
-  ["inherited Grok palette", /pixel[- ]sampled from the real Grok app|\[data-skin=["']midnight["']\]/i],
-  [
-    "previous-owner runtime destination",
-    /(?:github\.com|raw\.githubusercontent\.com)\/milind-soni\b|buy\.polar\.sh\/|polar\.sh\/supa(?:maus|sigil)|\bsupamaus\b|milindsoni\d*\.workers\.dev|(?:Developer ID Application|Maintainer):\s*Milind Soni/i,
-  ],
+  ["old product name", retired("XGIoPzpPcGVuWyBfLV0/TWF1cyg/OkJvdCk/fE1hdXNCb3R8T3Blbj9bIF8tXT9Hcm9rQm90fEdyb2tbIF8tXT9Cb3QpXGI=", "i")],
+  ["old mascot identity", retired("XGIoPzpTdXBhTWF1c3xTdXBhU2lnaWx8TUFVUyg/Ol9bQS1aMC05X10rKT8pXGI=", "i")],
+  ["old bundle, domain, release, or scheme", retired("KD86b3Blbm1hdXMoPzpib3QpP3xvcGVuZ3Jvayg/OmJvdCk/fG1hdXNib3QpKD89Wy1fLjpceDJmXFxdKQ==", "")],
+  ["old storage namespace", retired("KD86XnxbXFwvXSlcLm9wZW5tYXVzKD86W1xcL118JCl8XGJvcGVubWF1c1wuKD86anNvbnxkYnxzcWxpdGUpXGI=", "i")],
+  ["old environment namespace", retired("XGIoPzpPUEVOTUFVU3xPUEVOR1JPS3xNQVVTQk9UfE9HQnxPTUIpX1tBLVowLTlfXStcYg==", "")],
+  ["old MCP namespace", retired("XGJtY3BfX29nYig/Ol9ffFxiKQ==", "i")],
+  ["old short prefix", retired("KD86XnxbXmEtejAtOV0pb21iWy1fXVthLXowLTld", "")],
+  ["old crew filename", retired("XGJ0ZWFtXC5zaWdpbHRlYW1cLmpzb25cYg==", "i")],
+  ["old manifest format", retired("XGIoPzpvcGVubWF1c3xoZWxtcnl0aClcLnRlYW1cYg==", "i")],
+  ["inherited palette lineage", retired("cGl4ZWxbLSBdc2FtcGxlZCBmcm9tIHRoZSByZWFsIEdyb2sgYXBwfFxbZGF0YS1za2luPVsiJ11taWRuaWdodFsiJ11cXQ==", "i")],
+  ["previous-owner runtime destination", retired("KD86Z2l0aHViXC5jb218cmF3XC5naXRodWJ1c2VyY29udGVudFwuY29tKVwvbWlsaW5kLXNvbmlcYnxidXlcLnBvbGFyXC5zaFwvfHBvbGFyXC5zaFwvc3VwYSg/Om1hdXN8c2lnaWwpfFxic3VwYW1hdXNcYnxtaWxpbmRzb25pXGQqXC53b3JrZXJzXC5kZXZ8KD86RGV2ZWxvcGVyIElEIEFwcGxpY2F0aW9ufE1haW50YWluZXIpOlxzKk1pbGluZCBTb25p", "i")],
 ];
 
 const BANNED_COPY = [
@@ -138,30 +159,26 @@ export const MIGRATION_CONTRACTS = [
     ],
     forbidden: [/setItem\(LEGACY_KEY,/],
   },
+  // The pairing-token migration rules are gone with the migration itself. A
+  // pairing window lives two minutes and only this sidecar mints tokens, so the
+  // predecessor's shape was unreachable and has been deleted rather than
+  // decoded. Reintroducing it is still caught: the encoded "old short prefix"
+  // identity rule above matches that prefix wherever it appears.
   {
-    name: "companion pairing-token migration",
+    name: "pairing token shape",
     legacyFile: "src/lib/companion-pairing.ts",
-    legacy: [/omb_pair_/],
+    legacy: [],
     canonical: [
       ["src/lib/companion-pairing.ts", /HELMRYTH_PAIRING_TOKEN\s*=\s*\/\^hry_pair_/],
       ["companion/src/devices.ts", /token:\s*`hry_pair_\$\{/],
-    ],
-    forbidden: [/token:\s*`omb_pair_\$\{/],
-  },
-  {
-    name: "iOS pairing-token migration",
-    legacyFile: "ios/Sources/CompanionCore/Client.swift",
-    legacy: [/omb_pair_/],
-    canonical: [
       ["ios/Sources/CompanionCore/Client.swift", /hry_pair_/],
-      ["companion/src/devices.ts", /token:\s*`hry_pair_\$\{/],
     ],
     forbidden: [],
   },
   {
     name: "crew-manifest migration",
     legacyFile: "server/team-manifest.ts",
-    legacy: [/openmaus\.team/, /helmryth\.team/],
+    legacy: [/helmryth\.team/],
     canonical: [
       ["server/team-manifest.ts", /CREW_MANIFEST_FORMAT\s*=\s*["']helmryth\.crew["']/],
       ["server/team-manifest.ts", /format:\s*CREW_MANIFEST_FORMAT/],
@@ -180,9 +197,9 @@ export const MIGRATION_CONTRACTS = [
     forbidden: [],
   },
   {
-    name: "legacy crew-filename discovery",
+    name: "crew-filename discovery",
     legacyFile: "server/team-library.ts",
-    legacy: [/team\.sigilteam\.json/],
+    legacy: [],
     canonical: [
       ["server/team-library.ts", /import \{ CREW_MANIFEST_FILENAME,/],
       ["server/team-library.ts", /main\/\$\{CREW_MANIFEST_FILENAME\}/],
@@ -242,7 +259,7 @@ function explicitlyLegacy(name, line) {
 
 function ignoredFile(name) {
   return (
-    name === self ||
+    name === SELF_NAME ||
     LEGAL_TEXT_FILE.test(name) ||
     ARCHIVAL_OR_PLANNING.test(name) ||
     POLICY_OR_AGENT_FILE.test(name)
@@ -409,12 +426,7 @@ export function scanRepository(scanRoot = root) {
       continue;
     }
     if (contents.includes("\0")) continue;
-    // Every exemption below is written with forward slashes (docs/qa/,
-    // third_party/playwright-injected/), but `relative` returns the platform
-    // separator — so on Windows nothing matched and the gate reported 163
-    // findings against QA prose it is supposed to exempt. Normalise once, here,
-    // rather than teaching each pattern about backslashes.
-    const name = relative(scanRoot, path).split(sep).join("/");
+    const name = repoRelative(scanRoot, path);
     contentsByName.set(name, contents);
     const lines = contents.split(/\r?\n/);
     findings.push(...identityFindings(name, lines), ...copyFindings(name, lines));

@@ -101,7 +101,7 @@ function markdownIntegrity(files) {
   for (const file of files) {
     const contents = read(file);
     const relative = path.relative(qaDir, file);
-    const lines = contents.split("\n");
+    const lines = contents.split(/\r?\n/);
 
     for (const match of contents.matchAll(definitionPattern)) {
       const id = match[1];
@@ -221,7 +221,14 @@ function sourceCensus() {
 }
 
 function listWorkflowJobIds(file) {
-  const lines = read(file).split("\n");
+  // `/\r?\n/`, not `"\n"`. A Windows checkout has CRLF line endings, so a bare
+  // split leaves `\r` on the end of every line: `line === "jobs:"` is never
+  // true, `inJobs` never flips, and every workflow reports zero jobs. The
+  // census then counts the five filenames and nothing else — which is exactly
+  // the `workflow labels: discovered 5, expected 17` this produced on CI. Even
+  // past that, the `$`-anchored job-id match would fail on the trailing `\r`.
+  // Same convention as scripts/check-brand-residue.mjs:431.
+  const lines = read(file).split(/\r?\n/);
   const jobs = [];
   let inJobs = false;
   for (const line of lines) {
@@ -690,6 +697,7 @@ export function runQaCoverage() {
 
 export {
   comparePackageScriptLedger,
+  listWorkflowJobIds,
   markdownIntegrity,
   parsePackageScriptLedger,
   splitMarkdownRow,

@@ -147,8 +147,8 @@ describe("crew library", () => {
   it("normalizes public GitHub repository, blob, and raw links", () => {
     const repositoryUrls = githubManifestUrls("https://github.com/acme/crew");
     expect(repositoryUrls[0]).toBe("https://raw.githubusercontent.com/acme/crew/main/helmcrew.json");
-    expect(repositoryUrls[4]).toBe("https://raw.githubusercontent.com/acme/crew/master/helmcrew.json");
-    expect(repositoryUrls).toHaveLength(8);
+    expect(repositoryUrls[2]).toBe("https://raw.githubusercontent.com/acme/crew/master/helmcrew.json");
+    expect(repositoryUrls).toHaveLength(4);
     expect(githubManifestUrls("https://github.com/acme/crew/blob/main/presets/seo.json")).toEqual([
       "https://raw.githubusercontent.com/acme/crew/main/presets/seo.json",
     ]);
@@ -169,6 +169,6 @@ describe("crew library", () => {
     const loaded = await fetchGithubTeam("https://github.com/acme/crew", fetcher);
     if (loaded.format !== "helmryth.crew") throw new Error("expected a Helmryth crew");
     expect(loaded.crew.operators[0]?.name).toBe("Ada");
-    expect(fetcher).toHaveBeenCalledTimes(5);
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 });

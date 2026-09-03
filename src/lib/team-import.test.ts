@@ -90,10 +90,8 @@ describe("crew import preview", () => {
     });
   });
 
-  // `botmrr` is the pre-rebrand spelling of the version marker. Current
-  // exports write `helmrythPackage`; both must preview identically so a
-  // package saved before the rename still imports.
-  it.each(["helmrythPackage", "botmrr"])("previews a portable Markdown playbook marked with %s", (marker) => {
+  it("previews a portable Markdown playbook under this product's marker", () => {
+    const marker = "helmrythPackage";
     const preview = teamImportPreview(`---
 ${marker}: 1
 name: Lead Desk

@@ -113,7 +113,16 @@ afterEach(() => {
 });
 
 describe("local computer descriptor", () => {
-  it("accepts only the exact certified Linux X11 descriptor", () => {
+  // The two cases below build a REAL Linux descriptor on disk and assert it is
+  // accepted. Acceptance runs through `ownedPrivate`, which is
+  // `(stat.uid === uid || stat.uid === 0) && (stat.mode & 0o077) === 0` — a
+  // POSIX ownership check. A Windows host has no POSIX modes to satisfy it:
+  // `stat.mode` reads 0o666, the descriptor is refused, and `readCuaConnection`
+  // returns null. That refusal is the product failing closed, which is correct;
+  // it just means a Windows host cannot exercise the accepting path at all.
+  // The rejection cases below, and "preserves the selected Windows descriptor
+  // contract", are not affected and keep running there.
+  it.skipIf(process.platform === "win32")("accepts only the exact certified Linux X11 descriptor", () => {
     const userData = privateUserData("linux-user-data");
     const descriptor = linuxDescriptor(userData);
     writeFileSync(join(userData, "cua-connection.json"), JSON.stringify(descriptor), { mode: 0o600 });
@@ -134,7 +143,7 @@ describe("local computer descriptor", () => {
     });
   });
 
-  it("accepts the exact GNOME Wayland descriptor without weakening the X11 contract", () => {
+  it.skipIf(process.platform === "win32")("accepts the exact GNOME Wayland descriptor without weakening the X11 contract", () => {
     const userData = privateUserData("linux-wayland-user-data");
     const descriptor = linuxDescriptor(userData, { session: "wayland" });
     expect(decodeLinuxDescriptor(descriptor)).toEqual({

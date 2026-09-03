@@ -9,9 +9,8 @@ export const CREW_MANIFEST_VERSION = 1 as const;
 export const CREW_MANIFEST_FILENAME = "helmcrew.json" as const;
 export const MAX_CREW_OPERATORS = 200;
 
-/** Import-only identifiers for files produced before the Helmryth crew contract. */
+/** Import-only identifier for files produced before the Helmryth crew contract. */
 const LEGACY_HELMRYTH_TEAM_FORMAT = "helmryth.team" as const;
-const LEGACY_OPENMAUS_TEAM_FORMAT = "openmaus.team" as const;
 const LEGACY_TEAM_MANIFEST_VERSIONS = [1, 2] as const;
 
 const COLORS = [
@@ -91,7 +90,7 @@ const legacyOperatorsSchema = z
   .max(MAX_CREW_OPERATORS, { message: `A legacy crew can have at most ${MAX_CREW_OPERATORS} operators` });
 
 const legacyTeamSchema = z.object({
-  format: z.union([z.literal(LEGACY_HELMRYTH_TEAM_FORMAT), z.literal(LEGACY_OPENMAUS_TEAM_FORMAT)]),
+  format: z.literal(LEGACY_HELMRYTH_TEAM_FORMAT),
   version: z.union([
     z.literal(LEGACY_TEAM_MANIFEST_VERSIONS[0]),
     z.literal(LEGACY_TEAM_MANIFEST_VERSIONS[1]),
@@ -211,7 +210,7 @@ export function parseCrewManifest(value: CrewManifestInput): ParsedCrewManifest 
   }
 
   const header = z.object({
-    format: z.enum([CREW_MANIFEST_FORMAT, LEGACY_HELMRYTH_TEAM_FORMAT, LEGACY_OPENMAUS_TEAM_FORMAT]),
+    format: z.enum([CREW_MANIFEST_FORMAT, LEGACY_HELMRYTH_TEAM_FORMAT]),
     version: z.json(),
   }).safeParse(value);
   if (header.success) {

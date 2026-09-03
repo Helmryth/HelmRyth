@@ -634,7 +634,14 @@ describe("RoutineManager", () => {
     expect(runs.some((run) => run.id === created[0])).toBe(false);
     expect(runs.some((run) => run.id === created.at(-1))).toBe(true);
     expect(runs.filter((run) => run.status === "queued")).toHaveLength(1_999);
-  });
+    // Two thousand runs, each persisted through writeFileAtomic — a write and
+    // a rename apiece. That is comfortably inside Vitest's default 20 s on a
+    // developer machine and not on an NTFS CI runner, where it timed out.
+    // Nothing is wrong with the code under test; the bound being exercised is
+    // simply large. Same reasoning as the SSE back-pressure case in
+    // index-resilience.test.ts, which carries 240 s for a kernel-buffer
+    // difference between Linux and macOS.
+  }, 120_000);
 
   it("folds provider lifecycle events into the calendar receipt", async () => {
     const h = harness();

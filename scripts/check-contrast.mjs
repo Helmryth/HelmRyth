@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Measures the palette in src/styles.css against WCAG 2.1 AA.
 //
 //   node scripts/check-contrast.mjs        (or: pnpm check:contrast)

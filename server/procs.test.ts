@@ -11,6 +11,14 @@ describe("brokerSocketPath", () => {
 
   it("keeps the socket inside the data dir when the path fits", () => {
     const dir = mkdtempSync(join(tmpdir(), "hry-sock-"));
+    if (process.platform === "win32") {
+      // Windows has no unix domain sockets, so there is no path under the data
+      // dir to keep anything inside. brokerSocketPath returns a named pipe
+      // there, deliberately and with a comment saying so; a pipe lives in a
+      // flat global namespace, not on the filesystem.
+      expect(brokerSocketPath(dir, tag)).toContain(String.raw`\\.\pipe\helmryth-perm-`);
+      return;
+    }
     expect(brokerSocketPath(dir, tag)).toBe(join(dir, `perm-${tag}.sock`));
   });
 
@@ -33,7 +41,13 @@ describe("brokerSocketPath", () => {
     expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
   });
 
-  it("gives different data dirs different fallback rooms", () => {
+  it.skipIf(process.platform === "win32")("gives different data dirs different fallback rooms", () => {
+    // POSIX only, and brokerSocketPath states the reason itself: "Named pipes
+    // share a global namespace; DATA_DIR cannot isolate two concurrent app
+    // instances the way a POSIX socket directory does." On Windows both calls
+    // return the same `\\.\pipe\helmryth-perm-<pid>-<tag>`, so there is no
+    // per-data-dir room to assert — that isolation genuinely does not exist
+    // there. Skipping records the gap rather than asserting it away.
     const a = brokerSocketPath(join(tmpdir(), "c".repeat(90), "one"), tag);
     const b = brokerSocketPath(join(tmpdir(), "c".repeat(90), "two"), tag);
     expect(dirname(a)).not.toBe(dirname(b));

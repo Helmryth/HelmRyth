@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -260,7 +260,13 @@ globalThis.fetch = (input, init) => {
     HELMRYTH_SSE_HEARTBEAT_MS: "50",
     FAKE_CLAUDE_MODE: "happy",
     FAKE_CLAUDE_DUMP: fakeClaudeDump,
-    NODE_OPTIONS: `--import=${preload}`,
+    // A file URL, not a path. `--import` goes through the ESM loader, which on
+    // Windows refuses a bare absolute path — `C:\\...` parses as a URL with
+    // protocol `c:` and the child dies at startup with
+    // ERR_UNSUPPORTED_ESM_URL_SCHEME before it can bind a port, so this whole
+    // suite failed to collect on the windows-latest leg. POSIX tolerated it
+    // because `/tmp/...` happens to be an acceptable specifier.
+    NODE_OPTIONS: `--import=${pathToFileURL(preload).href}`,
   };
   if (process.env.PATH) environment.PATH = process.env.PATH;
   if (process.env.SystemRoot) environment.SystemRoot = process.env.SystemRoot;
