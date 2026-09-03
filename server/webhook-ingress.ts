@@ -27,6 +27,10 @@ function json(res: ServerResponse, status: number, body: JsonValue): void {
 
 function readRawBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Text, not per-chunk Buffers — see readBody in index.ts. This body is also
+    // signed, so a chunk boundary landing inside a multi-byte character would
+    // change the bytes the signature is checked against as well as the payload.
+    req.setEncoding("utf8");
     let raw = "";
     let bytes = 0;
     let done = false;
