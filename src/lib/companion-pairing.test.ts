@@ -43,7 +43,7 @@ describe("companionPairingLink", () => {
       address: "mac.local",
       port: 8810,
       code: "123456",
-      token: `omb_pair_${"a".repeat(43)}`,
+      token: `xyz_pair_${"a".repeat(43)}`,
     })).toBeNull();
   });
 
