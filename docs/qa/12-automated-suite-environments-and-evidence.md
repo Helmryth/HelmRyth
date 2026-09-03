@@ -48,6 +48,7 @@ Run commands from the repository root unless otherwise noted.
 | SUITE-006 | `pnpm typecheck` | TypeScript renderer and server compilation contracts hold | Packaging, Swift, real browser/device interaction | P0 |
 | SUITE-007 | `pnpm test` | Root floor, Conduit tests, updater tests, desktop viewer/workspace tests, package-link/save-file/server-boot-probe tests, and packaged-server smoke all pass | Browser UI traversal, native OS permission prompts, signed artifacts | P0 |
 | SUITE-008 | `pnpm check:electron` | Electron-specific static checks pass | Packaging or live desktop startup | P1 |
+| SUITE-008b | `pnpm check:packaged` | Every bare specifier the packaged Electron main process imports is declared in `dependencies` and selected by an `electron-builder.yml` `files` entry, so the packaged app can resolve it from inside the asar | Whether the package itself works once resolved, native staging, or signing | P0 |
 | SUITE-009 | `pnpm build` | Renderer and server bundles compile | Packaging metadata, docs build, workers, iOS | P1 |
 | SUITE-010 | `pnpm docs:build` | Docs app, MDX content, and Next docs routes build | Main renderer behavior or package artifacts | P2 |
 | SUITE-011 | `pnpm --filter @helmryth/docs types:check` | Docs app route generation and TypeScript contracts hold | Main renderer behavior, packaging, or content correctness beyond type safety | P1 |
@@ -75,9 +76,10 @@ Run commands from the repository root unless otherwise noted.
 6. `pnpm typecheck`
 7. `pnpm test`
 8. `pnpm check:electron`
-9. `pnpm build`
-10. `pnpm docs:build`
-11. `pnpm --filter @helmryth/docs types:check`
+9. `pnpm check:packaged`
+10. `pnpm build`
+11. `pnpm docs:build`
+12. `pnpm --filter @helmryth/docs types:check`
 12. `pnpm registry:check`
 13. `pnpm registry:test`
 14. `pnpm registry:dry-run`
@@ -95,7 +97,7 @@ These are the commands executed in this pass on August 30–31, 2026. One full p
 
 > **Point-in-time record — do not restate these figures as current.** This snapshot is left exactly as the August
 > 30–31, 2026 run produced it, so it can still be used as evidence for that commit. Tree-tracking counts have since
-> drifted: regression tests added after this run put `rootTestFiles` at `273`, and the root Vitest file and test
+> drifted: regression tests added after this run put `rootTestFiles` at `274`, and the root Vitest file and test
 > totals moved with them. Treat the `pnpm check:qa-docs` and `pnpm test` rows below as history, and re-run both for
 > the current checkout; `scripts/check-qa-coverage.mjs` holds the census the gate actually enforces.
 

@@ -19,6 +19,7 @@
     "check:brand": "node scripts/check-brand-residue.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:qa-docs": "node scripts/check-qa-coverage.mjs",
+    "check:packaged": "node scripts/check-packaged-imports.mjs",
     "dev": "vite",
     "docs:dev": "pnpm --filter @helmryth/docs dev",
     "docs:build": "pnpm --filter @helmryth/docs build",

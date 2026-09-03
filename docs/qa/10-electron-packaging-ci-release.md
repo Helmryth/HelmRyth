@@ -9,7 +9,7 @@ This chapter is the release gate for the Electron shell, preload bridge, native 
 | Native IPC handlers/events | 76 registrations total: 74 `ipcMain.handle` channels plus 2 `ipcMain.on` channels across `electron/main.mjs`, `electron/updater.mjs`, `electron/cua.mjs`, and `electron/android-device.mjs`, including the Reach and Registry compatibility aliases exposed through preload. |
 | Packaged desktop artifacts | macOS `dmg` + `zip` for `arm64` and `x64`; Windows `nsis` + `zip` for `x64`; Linux `AppImage` + `deb` for `x64`, plus stable-named copies generated in workflow lanes. |
 | Release workflows | `ci.yml`, `package-linux.yml`, `package-win.yml`, and `release.yml`. |
-| Script gates | `check:brand`, `check:contrast`, `check:electron`, `package:prepare`, `package:release:*`, `release:config:check`, `verify-update-target.mjs`, `verify-linux-package.mjs`, `smoke-packaged-server.mjs`, `smoke-linux-package.mjs`, `smoke-deb-upgrade.mjs`, `regenerate-blockmaps.mjs`, and `regenerate-mac-feed.mjs`. |
+| Script gates | `check:brand`, `check:contrast`, `check:electron`, `check:packaged`, `package:prepare`, `package:release:*`, `release:config:check`, `verify-update-target.mjs`, `verify-linux-package.mjs`, `smoke-packaged-server.mjs`, `smoke-linux-package.mjs`, `smoke-deb-upgrade.mjs`, `regenerate-blockmaps.mjs`, and `regenerate-mac-feed.mjs`. |
 
 ## Global native and release invariants
 
