@@ -161,23 +161,19 @@ export const MIGRATION_CONTRACTS = [
     ],
     forbidden: [/setItem\(LEGACY_KEY,/],
   },
+  // The pairing-token migration rules are gone with the migration itself. A
+  // pairing window lives two minutes and only this sidecar mints tokens, so the
+  // predecessor's shape was unreachable and has been deleted rather than
+  // decoded. Reintroducing it is still caught: the encoded "old short prefix"
+  // identity rule above matches that prefix wherever it appears.
   {
-    name: "companion pairing-token migration",
+    name: "pairing token shape",
     legacyFile: "src/lib/companion-pairing.ts",
-    legacy: [/omb_pair_/],
+    legacy: [],
     canonical: [
       ["src/lib/companion-pairing.ts", /HELMRYTH_PAIRING_TOKEN\s*=\s*\/\^hry_pair_/],
       ["companion/src/devices.ts", /token:\s*`hry_pair_\$\{/],
-    ],
-    forbidden: [/token:\s*`omb_pair_\$\{/],
-  },
-  {
-    name: "iOS pairing-token migration",
-    legacyFile: "ios/Sources/CompanionCore/Client.swift",
-    legacy: [/omb_pair_/],
-    canonical: [
       ["ios/Sources/CompanionCore/Client.swift", /hry_pair_/],
-      ["companion/src/devices.ts", /token:\s*`hry_pair_\$\{/],
     ],
     forbidden: [],
   },

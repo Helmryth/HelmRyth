@@ -55,14 +55,16 @@ export interface CompanionPairingRoutePin {
 const MAX_HOSTS = 8;
 const ENDPOINT_KINDS = new Set<CompanionEndpointKind>(["hosted", "tailnet", "lan", "bonjour"]);
 const HELMRYTH_PAIRING_TOKEN = /^hry_pair_[A-Za-z0-9_-]{43}$/;
-// Decode-only compatibility for pairing windows created by pre-Helmryth sidecars.
-const LEGACY_OMB_PAIRING_TOKEN = /^omb_pair_[A-Za-z0-9_-]{43}$/;
-
 export const isHelmrythPairingToken = (token: string): boolean =>
   HELMRYTH_PAIRING_TOKEN.test(token);
 
+/** A pairing window lives for PAIRING_TTL_MS — two minutes — and only this
+ * sidecar mints the tokens, so there is exactly one accepted shape. The
+ * predecessor product's prefix was carried here for migration and is gone:
+ * a token in that form could only be honoured if a build from before the
+ * rename had issued it inside the last two minutes. */
 export const isAcceptedPairingToken = (token: string): boolean =>
-  isHelmrythPairingToken(token) || LEGACY_OMB_PAIRING_TOKEN.test(token);
+  isHelmrythPairingToken(token);
 
 /** Keep the QR contract strict even though its input came from our own
  * sidecar. A public URL with credentials or a path is not a companion base
