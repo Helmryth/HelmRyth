@@ -355,3 +355,17 @@ export function formatRecordingTime(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1_000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
+
+/** Whether the recorder's transcription bridge can be consulted at all.
+ *
+ * `window.helmryth` is published only by the Electron preload, so in a browser
+ * dev shell it is simply absent. That has to resolve to a terminal answer here
+ * rather than at the call site, because the natural call site spelling —
+ * `window.helmryth?.transcription?.status().then(…).catch(…)` — short-circuits
+ * the ENTIRE chain when the bridge is missing. Neither handler runs, no state
+ * is ever set, and the page waits on a promise that was never created. */
+export function transcriptionBridgeUnavailable(
+  bridge: { status: () => Promise<{ configured: boolean }> } | null | undefined,
+): boolean {
+  return bridge == null;
+}
