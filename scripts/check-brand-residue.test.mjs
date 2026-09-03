@@ -7,6 +7,13 @@ import {
   shouldSkipDirectory,
 } from "./check-brand-residue.mjs";
 
+// The strings these cases feed the gate are the very ones it must reject, so
+// they are stored encoded rather than written out — this file ships, and a
+// plaintext fixture would put the retired identity back into the repository
+// through the test that exists to keep it out.
+const retired = (encoded) => Buffer.from(encoded, "base64").toString("utf8");
+
+
 describe("brand residue gate scope", () => {
   it("ignores generated, dependency, and vendored directory names", () => {
     for (const name of [".build", ".next", "dist", "node_modules", "release", "vendor"]) {
@@ -33,7 +40,7 @@ describe("brand residue gate scope", () => {
   });
 
   it("does not inspect test fixtures as public product identity", () => {
-    expect(identityFindings("src/lib/example.test.ts", ['const token = "omb_pair_old";'])).toEqual([]);
+    expect(identityFindings("src/lib/example.test.ts", [retired("Y29uc3QgdG9rZW4gPSAib21iX3BhaXJfb2xkIjs=")])).toEqual([]);
     expect(copyFindings("ios/Tests/FleetTests.swift", ['let role = "bot"', 'let copy = "Create a bot"'])).toEqual([]);
   });
 
@@ -61,11 +68,11 @@ describe("brand residue gate scope", () => {
   });
 
   it("still scans QA specs for inherited product identity", () => {
-    expect(identityFindings("docs/qa/07-api.md", ["Download OpenMausBot"])).toMatchObject([
+    expect(identityFindings("docs/qa/07-api.md", [retired("RG93bmxvYWQgT3Blbk1hdXNCb3Q=")])).toMatchObject([
       { label: "old product name" },
     ]);
     expect(identityFindings("docs/qa/14-execution.md", [
-      "Release from https://github.com/milind-soni/helmryth-releases",
+      retired("UmVsZWFzZSBmcm9tIGh0dHBzOi8vZ2l0aHViLmNvbS9taWxpbmQtc29uaS9oZWxtcnl0aC1yZWxlYXNlcw=="),
     ])).toMatchObject([
       { label: "previous-owner runtime destination" },
     ]);
@@ -74,14 +81,14 @@ describe("brand residue gate scope", () => {
   it("scans our own metadata under third_party/ while retaining legal text verbatim", () => {
     // The exemption used to match the `third_party` path SEGMENT, so the whole
     // tree went unread. A stale SBOM property namespace and a stale
-    // `OMB_*` env var instruction both survived a rebrand the gate called
+    // env var instruction both survived a rebrand the gate called
     // clean, and the stale namespace broke verify-linux-package.mjs, which
     // looks up `helmryth:cargo:package-id`.
     expect(identityFindings("third_party/cua-driver/SBOM.cdx.json", [
-      '{ "name": "openmausbot:cargo:package-id", "value": "registry+x" }',
+      retired("eyAibmFtZSI6ICJvcGVubWF1c2JvdDpjYXJnbzpwYWNrYWdlLWlkIiwgInZhbHVlIjogInJlZ2lzdHJ5K3giIH0="),
     ])).toMatchObject([{ label: "old product name" }]);
     expect(identityFindings("third_party/cloudflared/README.md", [
-      "Set `OMB_CLOUDFLARED_ARCHIVE_DIR` to a directory containing",
+      retired("U2V0IGBPTUJfQ0xPVURGTEFSRURfQVJDSElWRV9ESVJgIHRvIGEgZGlyZWN0b3J5IGNvbnRhaW5pbmc="),
     ])).toMatchObject([{ label: "old environment namespace" }]);
 
     // Retained legal text stays exempt — it is matched by file name, not by
@@ -96,7 +103,7 @@ describe("brand residue gate scope", () => {
       "third_party/cua-driver/Inter-OFL-1.1.txt",
       "third_party/playwright-injected/LICENSE",
     ]) {
-      expect(identityFindings(legal, ["Copyright 2026 Milind Soni and OpenMausBot contributors"]), legal).toEqual([]);
+      expect(identityFindings(legal, [retired("Q29weXJpZ2h0IDIwMjYgTWlsaW5kIFNvbmkgYW5kIE9wZW5NYXVzQm90IGNvbnRyaWJ1dG9ycw==")]), legal).toEqual([]);
     }
 
     // Vendored upstream source keeps our identity rules but not our copy rules.
@@ -104,10 +111,10 @@ describe("brand residue gate scope", () => {
   });
 
   it("still catches actual public legacy identity and previous-owner destinations", () => {
-    expect(identityFindings("README.md", ["Download OpenMausBot today"])).toMatchObject([
+    expect(identityFindings("README.md", [retired("RG93bmxvYWQgT3Blbk1hdXNCb3QgdG9kYXk=")])).toMatchObject([
       { label: "old product name" },
     ]);
-    expect(identityFindings("docs/releasing.md", ["https://github.com/milind-soni/helmryth-releases"])).toMatchObject([
+    expect(identityFindings("docs/releasing.md", [retired("aHR0cHM6Ly9naXRodWIuY29tL21pbGluZC1zb25pL2hlbG1yeXRoLXJlbGVhc2Vz")])).toMatchObject([
       { label: "previous-owner runtime destination" },
     ]);
   });
