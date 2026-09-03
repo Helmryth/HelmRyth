@@ -11,7 +11,7 @@ A gate in front of every consequential action. All of it on your machine.
 
 [Quick start](#quick-start) · [The films](#films) · [How it works](#how-it-works) · [Security](#security-posture)
 
-<sub>**2,999** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
+<sub>**3,023** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
 
 </div>
 
@@ -26,7 +26,7 @@ asked. You allow once, or you deny.
 
 The answer is written to a ledger.
 
-<img src="docs/media/04-gates-loop.png" alt="A gate card headed GATE WAITING · Shell command holds a mkdir command in a RESOURCE box, states its consequence and names Forge as the requester, above Deny request, Grant options and Allow once; the composer below reads Resolve the gate above to continue.">
+<img src="docs/media/04-gates-loop.png" alt="A gate card headed GATE WAITING · Shell command holds a mkdir command in a RESOURCE box, states its consequence and names the active operator as the requester, above Deny request, Grant options and Allow once; the composer below reads Resolve the gate above to continue.">
 
 <sub>Playing now, with no click. <b><a href="docs/media/04-gates.mp4">04 · Nothing runs until you answer</a></b> is the full film. The decision in it is a real row — <code>Forge · Bash · mkdir -p /tmp/helmryth-demo && printf 'READY' > …</code> — still readable at <code>GET /api/decisions</code> long after the recording stopped.</sub>
 
@@ -329,7 +329,7 @@ the documented census:
 
 | | |
 |---|---|
-| Tests passing | **2,999** across 273 files (19 skipped), plus **89** in seven child suites |
+| Tests passing | **3,023** across 274 files (19 skipped), plus **89** in seven child suites |
 | HTTP routes | **160** unique, each mapped in the traceability matrix |
 | Renderer controls | **597** declared across 63 files |
 | Runtime IPC channels | **76**, plus 10 preload event topics |
