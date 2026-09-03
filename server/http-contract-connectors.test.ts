@@ -18,6 +18,7 @@ import { z } from "zod";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { openSse } from "./testing/sse.ts";
 import { parseJson, type JsonObject, type JsonValue } from "./schema.ts";
+import { HAS_POSIX_FILE_MODES } from "./testing/platform.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
@@ -315,7 +316,12 @@ describe.sequential("public connector HTTP contract", () => {
       userId: "fixture-user",
       sessionId: "trs_fresh",
     });
-    expect(statSync(join(profileDir, "config.json")).mode & 0o777).toBe(0o600);
+    // Only where the platform has POSIX modes — see testing/platform.ts. The
+    // rest of this case (the repaired session, the stored credential shape, the
+    // single authorization intent) is platform-independent and still runs.
+    if (HAS_POSIX_FILE_MODES) {
+      expect(statSync(join(profileDir, "config.json")).mode & 0o777).toBe(0o600);
+    }
 
     const refreshed = await api("GET", "/api/connectors?services=github");
     expect(refreshed.status).toBe(200);
