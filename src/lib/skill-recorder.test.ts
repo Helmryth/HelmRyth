@@ -8,6 +8,7 @@ import {
   recorderExitRequiresCaptureStop,
   runRecordedMethodCaptureStartup,
   shortcutLabel,
+  transcriptionBridgeUnavailable,
   watchCaptureSource,
   type RecordedSkillEvent,
 } from "./skill-recorder";
@@ -243,5 +244,19 @@ describe("recorded-method startup orchestration", () => {
     expect(onEnded).toHaveBeenCalledOnce();
     await lease.release();
     expect(listenerState.ended).toBeNull();
+  });
+});
+
+describe("transcription bridge availability", () => {
+  it("reports the bridge missing so readiness never waits on a promise that was never made", () => {
+    // The regression: window.helmryth is undefined outside Electron, and the
+    // optional-chained call short-circuits past .then AND .catch, so the panel
+    // showed "Checking transcription status…" forever with recording disabled.
+    expect(transcriptionBridgeUnavailable(undefined)).toBe(true);
+    expect(transcriptionBridgeUnavailable(null)).toBe(true);
+  });
+
+  it("reports a real bridge as usable so the desktop path is untouched", () => {
+    expect(transcriptionBridgeUnavailable({ status: async () => ({ configured: true }) })).toBe(false);
   });
 });
