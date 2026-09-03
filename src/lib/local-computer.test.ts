@@ -44,6 +44,30 @@ function desktopCapabilities(
 }
 
 describe("local computer UI eligibility", () => {
+  it("stays selectable on macOS whether or not the driver has its grants yet", () => {
+    // This is why `capabilities.localComputer.available` has to be its own
+    // dependency in ComputerPanel's resolve effect. Selectability deliberately
+    // does NOT track it on darwin — the button stays clickable before the
+    // grants exist so the user can pick Host and then approve — so an effect
+    // that lists only `localSelectable` never re-runs when the grants land.
+    const ungranted = desktopCapabilities("darwin", { available: false });
+    const granted = desktopCapabilities("darwin", { available: true });
+
+    expect(localComputerSelectable({ capabilities: ungranted, providerSupportsLocal: true })).toBe(true);
+    expect(localComputerSelectable({ capabilities: granted, providerSupportsLocal: true })).toBe(true);
+
+    // On Linux it does track it, which is why Linux recovered on its own and
+    // macOS did not.
+    expect(localComputerSelectable({
+      capabilities: desktopCapabilities("linux", { available: false }),
+      providerSupportsLocal: true,
+    })).toBe(false);
+    expect(localComputerSelectable({
+      capabilities: desktopCapabilities("linux", { available: true }),
+      providerSupportsLocal: true,
+    })).toBe(true);
+  });
+
   it("requires the selected instance to advertise approval-capable local MCP", () => {
     const bot = {
       modelSelection: { instanceId: "claude", model: "test" },
