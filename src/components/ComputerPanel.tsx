@@ -675,6 +675,15 @@ export function ComputerPanel({
     cloudBackend,
     retry,
     capabilitiesReady,
+    // `localAvailable` is read inside this effect and cannot be inferred from
+    // `localSelectable`: on macOS `localComputerSelectable` returns true as
+    // soon as the engine supports Host, whether or not the Workbench Driver
+    // has its grants yet, so it never moves when `available` flips. Without it
+    // here, granting Accessibility and Screen Recording changed nothing — the
+    // panel stayed on "local-unavailable" while the setting beside it said
+    // ready. Linux was unaffected, because there `localComputerSelectable`
+    // returns `available` itself.
+    localAvailable,
     localSelectable,
     isLinux,
     providerSupportsLocal,
