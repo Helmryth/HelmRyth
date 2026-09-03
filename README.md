@@ -11,7 +11,7 @@ A gate in front of every consequential action. All of it on your machine.
 
 [Quick start](#quick-start) · [The films](#films) · [How it works](#how-it-works) · [Security](#security-posture)
 
-<sub>**2,999** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
+<sub>**3,023** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
 
 </div>
 
@@ -329,7 +329,7 @@ the documented census:
 
 | | |
 |---|---|
-| Tests passing | **2,999** across 273 files (19 skipped), plus **89** in seven child suites |
+| Tests passing | **3,023** across 274 files (19 skipped), plus **89** in seven child suites |
 | HTTP routes | **160** unique, each mapped in the traceability matrix |
 | Renderer controls | **597** declared across 63 files |
 | Runtime IPC channels | **76**, plus 10 preload event topics |
