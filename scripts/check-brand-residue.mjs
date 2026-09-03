@@ -5,7 +5,22 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const self = relative(root, fileURLToPath(import.meta.url));
+
+/** A path in the one spelling every exemption in this file is written in.
+ *
+ * The exemptions below use forward slashes (`docs/qa/`,
+ * `third_party/playwright-injected/`) but `relative` returns the platform
+ * separator, so on Windows none of them matched and the gate reported 163
+ * findings against QA prose it exists to exempt. Normalising only the scanned
+ * side then produced the opposite failure: `self` still held backslashes, the
+ * `name === self` exemption never fired, and the gate scanned its own source
+ * and reported its own detection patterns. Both sides go through here. */
+export const toPosixPath = (value, separator = sep) => value.split(separator).join("/");
+
+/** `to` expressed relative to `from`, spelled the same way on every platform. */
+export const repoRelative = (from, to) => toPosixPath(relative(from, to));
+
+export const SELF_NAME = repoRelative(root, fileURLToPath(import.meta.url));
 
 const SOURCE_ROOTS = [
   ".claude",
@@ -250,7 +265,7 @@ function explicitlyLegacy(name, line) {
 
 function ignoredFile(name) {
   return (
-    name === self ||
+    name === SELF_NAME ||
     LEGAL_TEXT_FILE.test(name) ||
     ARCHIVAL_OR_PLANNING.test(name) ||
     POLICY_OR_AGENT_FILE.test(name)
@@ -417,12 +432,7 @@ export function scanRepository(scanRoot = root) {
       continue;
     }
     if (contents.includes("\0")) continue;
-    // Every exemption below is written with forward slashes (docs/qa/,
-    // third_party/playwright-injected/), but `relative` returns the platform
-    // separator — so on Windows nothing matched and the gate reported 163
-    // findings against QA prose it is supposed to exempt. Normalise once, here,
-    // rather than teaching each pattern about backslashes.
-    const name = relative(scanRoot, path).split(sep).join("/");
+    const name = repoRelative(scanRoot, path);
     contentsByName.set(name, contents);
     const lines = contents.split(/\r?\n/);
     findings.push(...identityFindings(name, lines), ...copyFindings(name, lines));
