@@ -203,9 +203,9 @@ export const MIGRATION_CONTRACTS = [
     forbidden: [],
   },
   {
-    name: "legacy crew-filename discovery",
+    name: "crew-filename discovery",
     legacyFile: "server/team-library.ts",
-    legacy: [/team\.sigilteam\.json/],
+    legacy: [],
     canonical: [
       ["server/team-library.ts", /import \{ CREW_MANIFEST_FILENAME,/],
       ["server/team-library.ts", /main\/\$\{CREW_MANIFEST_FILENAME\}/],
