@@ -272,12 +272,10 @@ public struct PairingInvite: Equatable, Sendable {
 
     private static func credential(from values: [String: String]) -> String? {
         if let token = values["token"] {
-            let canonicalPairingTokenPrefix = "hry_pair_"
-            let legacyMigrationPairingTokenPrefix = "omb_pair_"
-            let acceptedPrefixes = [canonicalPairingTokenPrefix, legacyMigrationPairingTokenPrefix]
-            guard let prefix = acceptedPrefixes.first(where: { token.hasPrefix($0) }),
-                  token.utf8.count == prefix.utf8.count + 43,
-                  token.dropFirst(prefix.count).utf8.allSatisfy({
+            let pairingTokenPrefix = "hry_pair_"
+            guard token.hasPrefix(pairingTokenPrefix),
+                  token.utf8.count == pairingTokenPrefix.utf8.count + 43,
+                  token.dropFirst(pairingTokenPrefix.count).utf8.allSatisfy({
                       (48...57).contains($0) || (65...90).contains($0) ||
                       (97...122).contains($0) || $0 == 45 || $0 == 95
                   })

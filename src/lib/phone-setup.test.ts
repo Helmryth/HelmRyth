@@ -383,8 +383,8 @@ describe("phone setup flow", () => {
     }, null, 1_000)).toContain("Helmryth Mobile pairing did not open");
     expect(companionPairingOpenFailure({
       enabled: true,
-      pairing: { ...fresh, token: `omb_pair_${"b".repeat(43)}` },
-    }, null, 1_000)).toBeNull();
+      pairing: { ...fresh, token: `xyz_pair_${"b".repeat(43)}` },
+    }, null, 1_000)).toContain("Helmryth Mobile pairing did not open");
   });
 
   it("unwraps Electron IPC account errors without exposing channel machinery", () => {

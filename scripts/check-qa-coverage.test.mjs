@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   comparePackageScriptLedger,
+  listWorkflowJobIds,
   markdownIntegrity,
   splitMarkdownRow,
 } from "./check-qa-coverage.mjs";
@@ -91,5 +92,49 @@ describe("QA coverage checker integrity helpers", () => {
       missing: ["apps/docs/package.json:test", "package.json:build"],
       unexpected: ["apps/docs/package.json:build", "package.json:test"],
     });
+  });
+});
+
+describe("workflow job discovery", () => {
+  const workflow = [
+    "name: CI",
+    "on:",
+    "  push:",
+    "    branches: [main]",
+    "jobs:",
+    "  test:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - run: pnpm test",
+    "  package-linux:",
+    "    runs-on: ubuntu-24.04",
+    "  ios:",
+    "    runs-on: macos-latest",
+  ];
+
+  const write = (contents) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hry-workflow-"));
+    const file = path.join(dir, "ci.yml");
+    fs.writeFileSync(file, contents);
+    return file;
+  };
+
+  it("reads the job ids out of a workflow", () => {
+    expect(listWorkflowJobIds(write(workflow.join("\n")))).toEqual(["test", "package-linux", "ios"]);
+  });
+
+  it("reads them the same way when the checkout has CRLF line endings", () => {
+    // A Windows checkout converts to CRLF, and a bare `split("\n")` leaves the
+    // \r attached: `line === "jobs:"` is never true, the reader never enters
+    // the jobs block, and every workflow returns nothing. The census then
+    // counted the five workflow FILENAMES and no job labels at all, which is
+    // precisely the `workflow labels: discovered 5, expected 17` that failed
+    // the windows-latest leg. Asserted here rather than left to that runner.
+    expect(listWorkflowJobIds(write(workflow.join("\r\n")))).toEqual(["test", "package-linux", "ios"]);
+  });
+
+  it("stops at the end of the jobs block", () => {
+    const trailing = [...workflow, "", "permissions:", "  contents: read"];
+    expect(listWorkflowJobIds(write(trailing.join("\r\n")))).toEqual(["test", "package-linux", "ios"]);
   });
 });

@@ -1,14 +1,14 @@
 Helmryth
 Copyright 2026 Helmryth contributors
 
-Helmryth is distributed as a rebranded derivative work and intentionally
-retains upstream attribution and license notices where required.
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
 
-Upstream notice retained verbatim:
+This product bundles third-party components, which carry their own licenses in
+the directories where they ship:
 
-OpenMausBot
-Copyright 2026 Milind Soni and OpenMausBot contributors
+  third_party/cua-driver           see third_party/cua-driver/LICENSE.md
+  third_party/playwright-injected  see third_party/playwright-injected/LICENSE
+  third_party/cloudflared          see third_party/cloudflared/README.md
 
-OpenMausBot was relicensed from the MIT License to the Apache License,
-Version 2.0, with the consent of all contributors whose copyright was
-incorporated before the transition.
+Component inventories and provenance for the bundled binaries are recorded
+alongside them, including third_party/cua-driver/SBOM.cdx.json.

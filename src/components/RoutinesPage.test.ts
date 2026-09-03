@@ -60,7 +60,7 @@ describe("Cadences surface", () => {
     expect(markup).toContain("Cadences");
     expect(markup).toContain("Give recurring work a clear rhythm");
     expect(markup).toContain("Create an operator first");
-    expect(markup).not.toMatch(/\b(?:MAUS|bot|routine|task|agent)\b/i);
+    expect(markup).not.toMatch(/\b(?:bot|routine|task|agent)\b/i);
   });
 
   it("announces local and hosted workbench selection without infrastructure labels", () => {

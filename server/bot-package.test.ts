@@ -76,26 +76,21 @@ describe("bot packages", () => {
     });
   });
 
-  it("stamps the current name into exported Markdown and still reads the retired one", () => {
+  it("accepts only this product's version marker in exported Markdown", () => {
     // The exported playbook is a public artifact — a user downloads it and
-    // shares it — so it must not carry the pre-rebrand `botmrr` marker.
+    // shares it — so it names this product, and only this product, on both
+    // write and read. No predecessor spelling is honoured.
     const markdown = renderBotPackageMarkdown(parseBotPackage(validPackage));
     expect(markdown).toContain("helmrythPackage: 1");
-    expect(markdown).not.toContain("botmrr");
     expect(isBotPackage(markdown)).toBe(true);
 
-    // Packages exported before the rename must keep importing unchanged.
-    const legacy = markdown.replace("helmrythPackage: 1", "botmrr: 1");
-    expect(isBotPackage(legacy)).toBe(true);
-    expect(parseBotPackage(legacy).package).toMatchObject(parseBotPackage(markdown).package);
+    // Any other marker is not a package, however well-formed the rest is.
+    const foreign = markdown.replace("helmrythPackage: 1", "otherProductPackage: 1");
+    expect(isBotPackage(foreign)).toBe(false);
 
-    // A version we do not speak is still rejected under either spelling.
-    for (const bad of [
-      markdown.replace("helmrythPackage: 1", "helmrythPackage: 2"),
-      markdown.replace("helmrythPackage: 1", "botmrr: 2"),
-    ]) {
-      expect(() => parseBotPackage(bad)).toThrow("Crew Markdown version is not supported");
-    }
+    // A version we do not speak is rejected rather than guessed at.
+    expect(() => parseBotPackage(markdown.replace("helmrythPackage: 1", "helmrythPackage: 2")))
+      .toThrow("Crew Markdown version is not supported");
   });
 
   it("rejects dangling agent, room, playbook, chief, and routine references", () => {

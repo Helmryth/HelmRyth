@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { HAS_POSIX_FILE_MODES } from "./testing/platform.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
@@ -304,7 +305,10 @@ describe("harness resilience", () => {
     expect(visible.length).toBeLessThanOrEqual(100);
   }, 120_000);
 
-  it("does not report an erasure that did not finish when the operator is deleted", async () => {
+  // Same shape: the unfinishable erasure is simulated with
+  // `chmodSync(workspaces, 0o500)`, which NTFS ignores, so the removal
+  // succeeds and the erasure reports "complete" instead of "pending".
+  it.skipIf(!HAS_POSIX_FILE_MODES)("does not report an erasure that did not finish when the operator is deleted", async () => {
     // The delete answered { ok: true } from the roster write alone. A private
     // workspace whose removal failed is still on disk and only queued for the
     // post-restart retry — and the receipt beside `ok` already said so.
@@ -360,7 +364,11 @@ describe("harness resilience", () => {
     }
   }, 60_000);
 
-  it("does not leave an operator behind when the create cannot be persisted", async () => {
+  // Simulates the persist failure with `chmodSync(dataDir, 0o500)`. NTFS
+  // ignores that — Windows permissions are ACLs and the mode argument is not
+  // honoured — so the write succeeds, the route answers 201, and the case is
+  // asserting a failure the platform will not produce. See testing/platform.ts.
+  it.skipIf(!HAS_POSIX_FILE_MODES)("does not leave an operator behind when the create cannot be persisted", async () => {
     // store.createBot adds the operator to the live roster and then persists
     // it. When the persist failed, the 500 went back to the client while the
     // operator stayed live: GET served it, and the next unrelated write

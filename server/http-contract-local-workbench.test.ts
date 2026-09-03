@@ -382,7 +382,22 @@ afterAll(async () => {
   await removeTempDir(home);
 });
 
-describe.sequential("Local and Isolated Workbench public HTTP contracts", () => {
+// POSIX only, because the harness is. This suite drives the production
+// execFile-based container adapter against fake `docker`, `podman` and
+// `container` executables it writes into a scratch bin directory — each one a
+// file with no extension whose first line is `#!<node>`. Windows does not
+// execute shebangs and does not treat an extensionless file as runnable, so
+// every adapter call fails, every route answers 500 or 409, and four cases in
+// here failed on the windows-latest leg for that reason alone. Nothing about
+// the contract under test is platform-specific; only the way the fake runtime
+// is installed is.
+//
+// Restoring Windows coverage means writing a `docker.cmd` shim that forwards
+// to a sibling `.mjs`, and doing the same for podman and container. That is a
+// harness change worth making, and it is not this one — it cannot be verified
+// without a Windows host, and guessing at it would trade four honest failures
+// for four unverified passes.
+describe.skipIf(process.platform === "win32").sequential("Local and Isolated Workbench public HTTP contracts", () => {
   beforeEach(async () => {
     writeState(cleanState());
     writeFileSync(callsPath, "", { mode: 0o600 });

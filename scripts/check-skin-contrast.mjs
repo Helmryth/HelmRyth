@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Reads the skin blocks out of src/styles.css and measures every text/surface
 // pair the components actually produce. Run it after touching a palette:
 //
