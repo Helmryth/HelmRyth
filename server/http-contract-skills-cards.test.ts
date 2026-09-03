@@ -514,6 +514,37 @@ describe("Methods and interactive-card HTTP contracts", () => {
     }
   });
 
+  it("appends one connector card when two identical requests arrive together", async () => {
+    // The dedupe read the transcript, then awaited composio.toolkitCard — a
+    // network call — and only then appended. Two concurrent requests both saw
+    // an empty transcript before either wrote, so the thread got two identical
+    // cards. Not cosmetic: maybeResumeConnectors holds the paused turn until
+    // every matching card is resumed, so the run stayed parked until the person
+    // answered both. The existing idempotency case below sends its requests one
+    // after the other, which passes because the first has already appended.
+    const auth = { authorization: `Bearer ${commsToken}` };
+    connectorConnected = false;
+    const resumeKey = "connector_race_resume_1234567";
+    const send = () => api("POST", "/api/internal/connectors/request", {
+      botId: bot.id,
+      threadId: bot.threadId,
+      slugs: ["github"],
+      resumeKey,
+    }, auth);
+
+    const [first, second] = await Promise.all([send(), send()]);
+    expectJson(first, 200);
+    expectJson(second, 200);
+    const ids = z.object({ messageIds: z.array(z.string()).length(1) });
+    expect(ids.parse(first.body).messageIds).toEqual(ids.parse(second.body).messageIds);
+
+    const thread = await api("GET", `/api/threads/${bot.threadId}/messages?limit=200`);
+    expect(thread.status).toBe(200);
+    const cards = messagePageSchema.parse(thread.body).messages
+      .filter((message) => message.kind === "connector");
+    expect(cards).toHaveLength(1);
+  });
+
   it("authorizes and resumes a connector card with identity, trust, idempotency, persistence, and SSE proofs", async () => {
     const auth = { authorization: `Bearer ${commsToken}` };
     connectorConnected = false;
