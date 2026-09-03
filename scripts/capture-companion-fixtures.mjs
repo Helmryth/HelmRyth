@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Capture the iOS test fixtures from a real harness.
 //
 //   node scripts/capture-companion-fixtures.mjs
