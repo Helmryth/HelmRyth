@@ -56,6 +56,7 @@ build:updater
 check:brand
 check:contrast
 check:electron
+check:packaged
 check:qa-docs
 clean
 companion
@@ -714,6 +715,7 @@ The checker consumes the exact manifest-to-script mapping below. A generic scrip
     "check:brand",
     "check:contrast",
     "check:electron",
+    "check:packaged",
     "check:qa-docs",
     "clean",
     "companion",

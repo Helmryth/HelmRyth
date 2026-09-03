@@ -11,7 +11,7 @@ Source state: unpacked filesystem snapshot without live `.git` metadata. A canon
 > **Point-in-time record — do not restate these figures as current.** Every number below is the raw output of the
 > August 30–31, 2026 run and is deliberately left as recorded; a dated evidence report that gets quietly rewritten to
 > match a later tree stops being evidence. The counts that track the working tree have already moved on: regression
-> tests added after this run put `rootTestFiles` at `273`, so the `pnpm check:qa-docs` and `pnpm test` rows here no
+> tests added after this run put `rootTestFiles` at `274`, so the `pnpm check:qa-docs` and `pnpm test` rows here no
 > longer describe the current checkout. `scripts/check-qa-coverage.mjs` carries the live census the gate enforces;
 > re-run it and `pnpm test` for today's numbers rather than reading them off this table.
 
