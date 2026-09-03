@@ -1078,6 +1078,7 @@ async function handle(msg: any) {
   }
 }
 
+process.stdin.setEncoding("utf8");
 let buf = "";
 process.stdin.on("data", (chunk) => {
   buf += chunk;
