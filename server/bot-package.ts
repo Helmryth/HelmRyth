@@ -7,12 +7,9 @@ import type { CrewManifestOperator } from "./team-manifest.ts";
 
 export const BOT_PACKAGE_FORMAT = "helmryth.package" as const;
 export const BOT_PACKAGE_VERSION = 1 as const;
-/** Version marker in exported Markdown frontmatter. `botmrr` is the retired
- * spelling: it is still accepted on read so packages exported before the
- * rebrand keep importing, but it is never written again — this artifact is
- * public, so every package a user shares would otherwise carry the old name. */
+/** Version marker in exported Markdown frontmatter. This artifact is public —
+ * every package a user shares carries it — so it names this product only. */
 export const CREW_MARKDOWN_VERSION_KEY = "helmrythPackage" as const;
-export const LEGACY_CREW_MARKDOWN_VERSION_KEY = "botmrr" as const;
 export const CREW_MARKDOWN_VERSION = 1 as const;
 
 const COLORS = [
@@ -130,7 +127,7 @@ export type BotPackagePlaybook = NonNullable<BotPackageDefinition["playbooks"]>[
 
 export function isBotPackage(value: JsonValue | ParsedBotPackage): boolean {
   const markdown = z.string().safeParse(value);
-  if (markdown.success) return /^---\r?\n[\s\S]*?\b(?:helmrythPackage|botmrr):\s*1\b/m.test(markdown.data);
+  if (markdown.success) return /^---\r?\n[\s\S]*?\bhelmrythPackage:\s*1\b/m.test(markdown.data);
   return z.object({ format: z.literal(BOT_PACKAGE_FORMAT) }).safeParse(value).success;
 }
 
@@ -148,13 +145,8 @@ function markdownDocument(markdown: string): JsonValue {
   if (!metadataResult.success) {
     throw new Error("This Markdown is missing its legacy crew blueprint");
   }
-  const {
-    [CREW_MARKDOWN_VERSION_KEY]: version,
-    [LEGACY_CREW_MARKDOWN_VERSION_KEY]: legacyVersion,
-    ...definition
-  } = metadataResult.data;
-  const declared = version ?? legacyVersion;
-  if (declared !== CREW_MARKDOWN_VERSION) throw new Error("Crew Markdown version is not supported");
+  const { [CREW_MARKDOWN_VERSION_KEY]: version, ...definition } = metadataResult.data;
+  if (version !== CREW_MARKDOWN_VERSION) throw new Error("Crew Markdown version is not supported");
   for (const heading of ["Activation", "Mission", "Outcomes", "Connections", "Team", "Lead operator", "Completion rule"]) {
     if (!markdown.includes(`## ${heading}`)) throw new Error(`This Markdown is missing its ${heading} section`);
   }
