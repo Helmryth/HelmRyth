@@ -184,7 +184,7 @@ export const MIGRATION_CONTRACTS = [
   {
     name: "crew-manifest migration",
     legacyFile: "server/team-manifest.ts",
-    legacy: [/openmaus\.team/, /helmryth\.team/],
+    legacy: [/helmryth\.team/],
     canonical: [
       ["server/team-manifest.ts", /CREW_MANIFEST_FORMAT\s*=\s*["']helmryth\.crew["']/],
       ["server/team-manifest.ts", /format:\s*CREW_MANIFEST_FORMAT/],

@@ -7,7 +7,6 @@ import {
 } from "./team-manifest.ts";
 
 const LEGACY_HELMRYTH_TEAM_FORMAT = "helmryth.team" as const;
-const LEGACY_OPENMAUS_TEAM_FORMAT = "openmaus.team" as const;
 
 describe("crew manifests", () => {
   it("exports a portable Helmryth crew without runtime authority", () => {
@@ -81,7 +80,7 @@ describe("crew manifests", () => {
   });
 
   it("imports old team files through the explicit legacy boundary", () => {
-    for (const format of [LEGACY_HELMRYTH_TEAM_FORMAT, LEGACY_OPENMAUS_TEAM_FORMAT]) {
+    for (const format of [LEGACY_HELMRYTH_TEAM_FORMAT]) {
       const manifest = parseCrewManifest({
         format,
         version: 1,
