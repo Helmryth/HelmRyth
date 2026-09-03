@@ -43,6 +43,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm check:electron
+      # Asks, from the manifest and the sources alone, the question that the
+      # Ubuntu package job answers by building and launching the real app: can
+      # the packaged main process resolve everything it imports? That job runs
+      # once, on one platform; this runs on all three, in milliseconds, and the
+      # manifest it reads packages for all three.
+      - run: pnpm check:packaged
       - name: production UI build
         if: matrix.os == 'ubuntu-latest'
         run: pnpm exec vite build

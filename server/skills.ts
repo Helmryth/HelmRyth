@@ -25,6 +25,7 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSyn
 import { join } from "node:path";
 import { z } from "zod";
 
+import { quarantineCorruptFile, writeFileAtomic } from "./atomic.ts";
 import { workspaceDir } from "./workspace.ts";
 
 /** Spec rule: lowercase alphanumerics with single hyphens, 1-64 chars,
@@ -170,17 +171,36 @@ function manifestPath(botId: string): string {
 }
 
 function readManifest(botId: string): SkillManifest {
+  const path = manifestPath(botId);
+  let contents: string;
   try {
-    return skillManifestSchema.parse(JSON.parse(readFileSync(manifestPath(botId), "utf8")));
+    contents = readFileSync(path, "utf8");
   } catch {
-    // no skills yet, or a hand-edited file that no longer parses
+    // No skills installed for this bot yet. The ordinary case, and the only
+    // one where empty state is the truth rather than a guess.
+    return {};
   }
-  return {};
+  try {
+    return skillManifestSchema.parse(JSON.parse(contents));
+  } catch (cause) {
+    // The file exists but no longer parses, so the user DOES have skills and
+    // this is the record of which ones are enabled and which revision a person
+    // reviewed. Returning empty state silently would report zero skills, strand
+    // every SKILL.md on disk — removeSkill needs a manifest entry to delete one
+    // — discard the review acknowledgement, and let the next enable overwrite
+    // the evidence. Preserve the bytes and say so, the way every other state
+    // file in this server does.
+    quarantineCorruptFile(path, contents, cause);
+    return {};
+  }
 }
 
 function writeManifest(botId: string, manifest: SkillManifest): void {
   mkdirSync(skillsDir(botId), { recursive: true, mode: 0o700 });
-  writeFileSync(manifestPath(botId), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+  // Atomic, like every other persisted state file here. writeFileSync
+  // truncates in place, so a crash or a full disk mid-write leaves a partial
+  // manifest — which then reads as no skills at all.
+  writeFileAtomic(manifestPath(botId), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
 }
 
 /** The native discovery dirs of the CLIs bots run. A skill enabled here is

@@ -34,6 +34,14 @@ function open(): DatabaseSync {
   closeSync(openSync(file, "a", 0o600));
   repairPrivateFile(file);
   const db = new DatabaseSync(file);
+  // SQLite's built-in `lower()` folds ASCII and nothing else — `lower('Ärger')`
+  // is `Ärger`. Search folds its needle in JavaScript, which folds everything,
+  // so the two disagreed on every non-ASCII capital and a message containing
+  // one could not be found under ANY casing of the query. Register a fold that
+  // matches the one the caller uses. A JS call per scanned row is affordable
+  // for the same reason the scan itself is: these transcripts are megabytes.
+  db.function("unicode_lower", { deterministic: true }, (value) =>
+    value === null || value === undefined ? null : String(value).toLowerCase());
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA synchronous = NORMAL");
   db.exec(`
@@ -230,8 +238,8 @@ export function searchMessages(query: string, limit = 40, threadId?: string): Se
   const scope = threadId ? "thread_id = ? AND " : "";
   const statement = db().prepare(
     "SELECT thread_id, id, at, role, kind, text, json_extract(json, '$.tool.name') AS tool_name, json_extract(json, '$.from.name') AS from_name FROM messages " +
-      `WHERE ${scope}((kind = 'text' AND text IS NOT NULL AND lower(text) LIKE ? ESCAPE '\\') ` +
-      "   OR (kind = 'activity' AND tool_name IS NOT NULL AND lower(tool_name) LIKE ? ESCAPE '\\')) " +
+      `WHERE ${scope}((kind = 'text' AND text IS NOT NULL AND unicode_lower(text) LIKE ? ESCAPE '\\') ` +
+      "   OR (kind = 'activity' AND tool_name IS NOT NULL AND unicode_lower(tool_name) LIKE ? ESCAPE '\\')) " +
       "ORDER BY at DESC LIMIT ?",
   );
   const rows = searchRowsSchema.parse(

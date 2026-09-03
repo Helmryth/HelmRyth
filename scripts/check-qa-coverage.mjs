@@ -602,14 +602,14 @@ export function runQaCoverage() {
   const integrity = markdownIntegrity(qaPaths);
   const census = sourceCensus();
   const expected = {
-    packageScripts: 94,
+    packageScripts: 95,
     workflowLabels: 17,
     routeRegistrations: 162,
     uniqueRoutes: 160,
     rendererFiles: 78,
     rendererControlFiles: 63,
     rendererControls: 597,
-    rootTestFiles: 273,
+    rootTestFiles: 274,
     ipcCallSites: 64,
     literalIpc: 52,
     dynamicIpc: 12,

@@ -302,6 +302,7 @@ function createPermissionBroker(opts: {
   } catch {}
   const server = createNetServer((conn) => {
     conn.on("error", () => {});
+    conn.setEncoding("utf8");
     let buf = "";
     conn.on("data", (chunk) => {
       buf += chunk;

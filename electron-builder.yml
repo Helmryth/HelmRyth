@@ -21,11 +21,17 @@ directories:
 # Linux CUA trust boundary requires root-owned package ancestors to be 0755.
 afterPack: ./scripts/after-pack.mjs
 
-# The app is three self-contained pieces, none needing node_modules at
-# runtime: the Electron main/preload (plain .mjs/.cjs), the built UI
-# (Vite → ui/), and the compiled harness server (tsc → server/), both
-# shipped in Resources and run on Electron's own Node via
-# ELECTRON_RUN_AS_NODE.
+# The built UI (Vite -> ui/) and the compiled harness server (tsc -> server/)
+# are each bundled before packaging and run on Electron's own Node via
+# ELECTRON_RUN_AS_NODE, so their dependencies are already inside them and must
+# not be copied a second time — that is what the blanket node_modules
+# exclusion below is for.
+#
+# The Electron main and preload are the exception: they are NOT bundled. They
+# ship as plain .mjs/.cjs and resolve their imports at runtime from inside the
+# asar, so every package they import has to be put back explicitly after that
+# exclusion. `pnpm check:packaged` fails the build when one is missing, which
+# is otherwise only discoverable by packaging the app and launching it.
 files:
   - electron/**
   - "!electron/**/*.test.*"
@@ -38,6 +44,11 @@ files:
   - "!electron/resources/recorder-helper-Info.plist"
   - "!electron/resources/Helmryth Recorder.app/**"
   - "!**/node_modules/**"
+  # Imported at module scope by managed-composio.mjs, registry-client.mjs and
+  # companion-account-service.mjs. Omitting it does not degrade a feature — the
+  # app dies before any window opens with ERR_MODULE_NOT_FOUND. zod declares no
+  # dependencies of its own, so this one entry is the whole subtree.
+  - node_modules/zod/**
   - package.json
 
 asar: true
