@@ -75,7 +75,7 @@ describe("QA coverage checker integrity helpers", () => {
       encoding: "utf8",
     });
     expect(result.status, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, scripts: 94 });
+    expect(JSON.parse(result.stdout)).toMatchObject({ ok: true, scripts: 95 });
   });
 
   it("rejects script names documented under the wrong manifest", () => {
