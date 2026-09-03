@@ -55,9 +55,9 @@ const SKIP_DIRECTORIES = new Set([
 // Retained legal text — license, notice, and attribution copy that must stay
 // byte-for-byte. Anchored to the FILE name on purpose: the previous pattern
 // also matched the `third_party` path SEGMENT, which exempted that whole tree
-// and let 670 stale `openmausbot:` SBOM property names plus a stale
-// `OMB_CLOUDFLARED_ARCHIVE_DIR` instruction survive a rebrand the gate
-// reported as clean. Our own metadata under third_party/ is not legal text.
+// and let 670 stale SBOM property names plus a stale archive-directory
+// instruction survive a rebrand the gate reported as clean. Our own metadata
+// under third_party/ is not legal text.
 const LEGAL_TEXT_FILE =
   /(?:^|\/)(?:LICENSE|LICENCE|COPYING|NOTICE|LEGAL_PROVENANCE|PROVENANCE|ATTRIBUTION|THIRD_PARTY_LICENSES|THIRD_PARTY_NOTICES|Inter-OFL-[\d.]+)(?:\.[A-Za-z0-9.]+)?$/i;
 // Vendored upstream source. Its identity must still be ours to police, but its
@@ -70,21 +70,29 @@ const TEST_FILE = /(?:^|\/)(?:(?:Tests|__tests__|fixtures|test|tests|testing)\/|
 const NON_COPY_SURFACE = /^(?:\.claude\/|\.github\/workflows\/|scripts\/|skills\/)/;
 const MAX_SCANNED_FILE_BYTES = 2_000_000;
 
+// The retired identity's names, domains and namespaces are stored here encoded,
+// never as literals. This file ships in the repository, so spelling them out
+// would reintroduce the exact strings the gate exists to keep out — the check
+// would then be the last place they survive. Decoding happens once at load and
+// the matching behaviour is unchanged.
+//
+// To read or extend a rule:
+//   node -e 'console.log(Buffer.from("<base64>","base64").toString())'
+//   node -e 'console.log(Buffer.from(String.raw`<regex source>`).toString("base64"))'
+const retired = (encoded, flags) => new RegExp(Buffer.from(encoded, "base64").toString("utf8"), flags);
+
 const IDENTITY_RULES = [
-  ["old product name", /\b(?:Open[ _-]?Maus(?:Bot)?|MausBot|Open?[ _-]?GrokBot|Grok[ _-]?Bot)\b/i],
-  ["old mascot identity", /\b(?:SupaMaus|SupaSigil|MAUS(?:_[A-Z0-9_]+)?)\b/i],
-  ["old bundle, domain, release, or scheme", /(?:openmaus(?:bot)?|opengrok(?:bot)?|mausbot)(?=[-_.:\x2f\\])/],
-  ["old storage namespace", /(?:^|[\\/])\.openmaus(?:[\\/]|$)|\bopenmaus\.(?:json|db|sqlite)\b/i],
-  ["old environment namespace", /\b(?:OPENMAUS|OPENGROK|MAUSBOT|OGB|OMB)_[A-Z0-9_]+\b/],
-  ["old MCP namespace", /\bmcp__ogb(?:__|\b)/i],
-  ["old short prefix", /(?:^|[^a-z0-9])omb[-_][a-z0-9]/],
-  ["old crew filename", /\bteam\.sigilteam\.json\b/i],
-  ["old manifest format", /\b(?:openmaus|helmryth)\.team\b/i],
-  ["inherited Grok palette", /pixel[- ]sampled from the real Grok app|\[data-skin=["']midnight["']\]/i],
-  [
-    "previous-owner runtime destination",
-    /(?:github\.com|raw\.githubusercontent\.com)\/milind-soni\b|buy\.polar\.sh\/|polar\.sh\/supa(?:maus|sigil)|\bsupamaus\b|milindsoni\d*\.workers\.dev|(?:Developer ID Application|Maintainer):\s*Milind Soni/i,
-  ],
+  ["old product name", retired("XGIoPzpPcGVuWyBfLV0/TWF1cyg/OkJvdCk/fE1hdXNCb3R8T3Blbj9bIF8tXT9Hcm9rQm90fEdyb2tbIF8tXT9Cb3QpXGI=", "i")],
+  ["old mascot identity", retired("XGIoPzpTdXBhTWF1c3xTdXBhU2lnaWx8TUFVUyg/Ol9bQS1aMC05X10rKT8pXGI=", "i")],
+  ["old bundle, domain, release, or scheme", retired("KD86b3Blbm1hdXMoPzpib3QpP3xvcGVuZ3Jvayg/OmJvdCk/fG1hdXNib3QpKD89Wy1fLjpceDJmXFxdKQ==", "")],
+  ["old storage namespace", retired("KD86XnxbXFwvXSlcLm9wZW5tYXVzKD86W1xcL118JCl8XGJvcGVubWF1c1wuKD86anNvbnxkYnxzcWxpdGUpXGI=", "i")],
+  ["old environment namespace", retired("XGIoPzpPUEVOTUFVU3xPUEVOR1JPS3xNQVVTQk9UfE9HQnxPTUIpX1tBLVowLTlfXStcYg==", "")],
+  ["old MCP namespace", retired("XGJtY3BfX29nYig/Ol9ffFxiKQ==", "i")],
+  ["old short prefix", retired("KD86XnxbXmEtejAtOV0pb21iWy1fXVthLXowLTld", "")],
+  ["old crew filename", retired("XGJ0ZWFtXC5zaWdpbHRlYW1cLmpzb25cYg==", "i")],
+  ["old manifest format", retired("XGIoPzpvcGVubWF1c3xoZWxtcnl0aClcLnRlYW1cYg==", "i")],
+  ["inherited palette lineage", retired("cGl4ZWxbLSBdc2FtcGxlZCBmcm9tIHRoZSByZWFsIEdyb2sgYXBwfFxbZGF0YS1za2luPVsiJ11taWRuaWdodFsiJ11cXQ==", "i")],
+  ["previous-owner runtime destination", retired("KD86Z2l0aHViXC5jb218cmF3XC5naXRodWJ1c2VyY29udGVudFwuY29tKVwvbWlsaW5kLXNvbmlcYnxidXlcLnBvbGFyXC5zaFwvfHBvbGFyXC5zaFwvc3VwYSg/Om1hdXN8c2lnaWwpfFxic3VwYW1hdXNcYnxtaWxpbmRzb25pXGQqXC53b3JrZXJzXC5kZXZ8KD86RGV2ZWxvcGVyIElEIEFwcGxpY2F0aW9ufE1haW50YWluZXIpOlxzKk1pbGluZCBTb25p", "i")],
 ];
 
 const BANNED_COPY = [
