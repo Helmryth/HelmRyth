@@ -1,3 +1,7 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -136,5 +140,34 @@ describe("this repository", () => {
       expect(entry.module, "exemption module").toMatch(/^electron\//);
       expect(entry.reason.length, `${entry.module} ${entry.specifier} needs a stated reason`).toBeGreaterThan(20);
     }
+  });
+});
+
+
+describe("scripts a test can import", () => {
+  it("carry no hashbang, which the transform on Windows does not strip", () => {
+    // Node's ESM loader strips a leading `#!`. The transform a file goes
+    // through when a TEST IMPORTS it on Windows does not, and `#` is not valid
+    // JavaScript there — the suite fails to collect with
+    // `SyntaxError: Invalid or unexpected token` and no line number.
+    //
+    // This has now happened twice. First for scripts/check-brand-residue.mjs,
+    // which was fixed by stripping the hashbang from all four scripts that had
+    // one. Then for scripts/check-packaged-imports.mjs, because the branch that
+    // added it was cut from main BEFORE that fix landed, so it reintroduced a
+    // fifth. Neither was caught locally: the Windows leg is the only place the
+    // failure exists.
+    //
+    // A hashbang does something only for a file run as `./script.mjs`, which
+    // needs an execute bit. Nothing under scripts/ has one, every call site is
+    // `node scripts/<name>.mjs` via a package script, and even
+    // `electron-builder.yml`'s `afterPack: ./scripts/after-pack.mjs` is loaded
+    // as a module rather than executed. So the line buys nothing and costs a
+    // whole suite.
+    const scripts = join(dirname(fileURLToPath(import.meta.url)));
+    const offenders = readdirSync(scripts)
+      .filter((name) => name.endsWith(".mjs") && !name.includes(".test."))
+      .filter((name) => readFileSync(join(scripts, name), "utf8").startsWith("#!"));
+    expect(offenders).toEqual([]);
   });
 });
