@@ -44,7 +44,7 @@ describe("mentionedBots", () => {
     expect(mentionedBots("@Divyam and @New Bot and @Divyam", peers).map((b) => b.id)).toEqual(["3", "1"]);
   });
   it("ignores emails, hidden bots, and mid-word @", () => {
-    expect(mentionedBots("mail divyam@divyam.dev please", peers)).toEqual([]);
+    expect(mentionedBots("mail ada@example.com please", peers)).toEqual([]);
     expect(mentionedBots("@Ghost around?", peers)).toEqual([]);
   });
   it("requires a word boundary at the end of the name", () => {
