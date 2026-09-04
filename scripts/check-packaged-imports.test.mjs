@@ -1,7 +1,15 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
+
+import { parse } from "yaml";
 
 import {
   bareSpecifiers,
+  excludedByManifest,
+  globToRegExp,
   includePatterns,
   DEVELOPMENT_ONLY_IMPORTS,
   isProvidedByRuntime,
@@ -136,5 +144,76 @@ describe("this repository", () => {
       expect(entry.module, "exemption module").toMatch(/^electron\//);
       expect(entry.reason.length, `${entry.module} ${entry.specifier} needs a stated reason`).toBeGreaterThan(20);
     }
+  });
+});
+
+
+describe("scripts a test can import", () => {
+  it("carry no hashbang, which the transform on Windows does not strip", () => {
+    // Node's ESM loader strips a leading `#!`. The transform a file goes
+    // through when a TEST IMPORTS it on Windows does not, and `#` is not valid
+    // JavaScript there — the suite fails to collect with
+    // `SyntaxError: Invalid or unexpected token` and no line number.
+    //
+    // This has now happened twice. First for scripts/check-brand-residue.mjs,
+    // which was fixed by stripping the hashbang from all four scripts that had
+    // one. Then for scripts/check-packaged-imports.mjs, because the branch that
+    // added it was cut from main BEFORE that fix landed, so it reintroduced a
+    // fifth. Neither was caught locally: the Windows leg is the only place the
+    // failure exists.
+    //
+    // A hashbang does something only for a file run as `./script.mjs`, which
+    // needs an execute bit. Nothing under scripts/ has one, every call site is
+    // `node scripts/<name>.mjs` via a package script, and even
+    // `electron-builder.yml`'s `afterPack: ./scripts/after-pack.mjs` is loaded
+    // as a module rather than executed. So the line buys nothing and costs a
+    // whole suite.
+    // Recursive on purpose. A flat read of scripts/ misses the twenty modules
+    // under scripts/film/, which are imported by other scripts and are exactly
+    // as importable by a test — the guard would have passed while covering
+    // none of them.
+    const scripts = join(dirname(fileURLToPath(import.meta.url)));
+    const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return walk(path);
+      return entry.name.endsWith(".mjs") && !entry.name.includes(".test.") ? [path] : [];
+    });
+    const offenders = walk(scripts)
+      .filter((path) => readFileSync(path, "utf8").startsWith("#!"))
+      .map((path) => path.slice(scripts.length + 1));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("test modules and the packaging manifest", () => {
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+  it("expands the glob shapes the files list actually uses", () => {
+    expect(globToRegExp("electron/**/*.test.*").test("electron/a.test.mjs")).toBe(true);
+    expect(globToRegExp("electron/**/*.test.*").test("electron/deep/a.test.mjs")).toBe(true);
+    // The bug in one line: `.node-test.` contains no `.test.` substring.
+    expect(globToRegExp("electron/**/*.test.*").test("electron/a.node-test.mjs")).toBe(false);
+    expect(globToRegExp("electron/**/*.node-test.*").test("electron/a.node-test.mjs")).toBe(true);
+    // A single star must not cross a directory boundary.
+    expect(globToRegExp("electron/*.mjs").test("electron/deep/a.mjs")).toBe(false);
+  });
+
+  it("excludes every test module from the packaged app", () => {
+    // Nine `*.node-test.mjs` modules were being signed into the asar, because
+    // `!electron/**/*.test.*` cannot match them. Shipping a test module is not
+    // merely dead weight: it is code inside a signed bundle that nobody reviews
+    // as shipped code, and it drags its fixtures and assumptions along with it.
+    //
+    // The authority for "is this a test module" is the same pattern the
+    // packaged-import scan uses to skip them. Holding the manifest to that one
+    // definition is the point — a new naming shape has to be handled in both
+    // places, or this fails.
+    const manifest = parse(readFileSync(join(repoRoot, "electron-builder.yml"), "utf8"));
+    const stillShipped = readdirSync(join(repoRoot, "electron"))
+      .filter((name) => /\.(?:test|node-test|spec)\.[cm]?js$/.test(name))
+      .map((name) => `electron/${name}`)
+      .filter((name) => !excludedByManifest(manifest.files, name));
+
+    expect(stillShipped).toEqual([]);
   });
 });

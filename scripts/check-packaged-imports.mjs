@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // Every package the Electron main process imports must actually be inside the
 // packaged app.
 //
@@ -149,6 +147,30 @@ export const DEVELOPMENT_ONLY_IMPORTS = [
     reason: "reached only under `if (!app.isPackaged)`; the packaged branch imports resourcesPath/cua-sdk/cua-sdk.mjs, staged by extraResources",
   },
 ];
+
+/** Minimal glob to RegExp for the shapes electron-builder's `files` list uses:
+ * `**` crosses directory boundaries, `*` does not, everything else is literal.
+ * Deliberately small — it exists to check this repository's own patterns, not
+ * to reimplement electron-builder. */
+export function globToRegExp(pattern) {
+  let out = "^";
+  let i = 0;
+  while (i < pattern.length) {
+    if (pattern.startsWith("**/", i)) { out += "(?:.*/)?"; i += 3; continue; }
+    if (pattern.startsWith("**", i)) { out += ".*"; i += 2; continue; }
+    if (pattern[i] === "*") { out += "[^/]*"; i += 1; continue; }
+    out += pattern[i].replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    i += 1;
+  }
+  return new RegExp(`${out}$`);
+}
+
+/** Whether the packaging manifest's `files` list excludes this path. */
+export function excludedByManifest(files, name) {
+  return includePatterns(files.filter((entry) => entry !== null && !(entry instanceof Object)))
+    .filter((entry) => entry.startsWith("!"))
+    .some((entry) => globToRegExp(entry.slice(1)).test(name));
+}
 
 export function packagedImportFindings({ modules, manifest, dependencies, devDependencies, exemptions = DEVELOPMENT_ONLY_IMPORTS }) {
   const excused = new Set(exemptions.map((entry) => `${entry.module} ${entry.specifier}`));
