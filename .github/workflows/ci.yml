@@ -23,7 +23,13 @@ jobs:
         # supported host platforms. POSIX-only process tests self-skip.
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # 25, not 15. This job runs the whole suite on three platforms and the
+    # slowest legs land at 13-15 minutes: 13m31s and 13m38s on ubuntu, 14m19s
+    # on windows, and one windows run cancelled at 15m8s having failed nothing.
+    # A cap 41 seconds above the observed runtime is not a margin — it turns
+    # ordinary runner variance into a red main. The heavier package job in this
+    # same file already allows 25 and the iOS job 20; this was the outlier.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
