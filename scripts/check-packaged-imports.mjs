@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // Every package the Electron main process imports must actually be inside the
 // packaged app.
 //
