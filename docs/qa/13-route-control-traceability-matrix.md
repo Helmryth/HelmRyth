@@ -201,7 +201,7 @@ update:install
 |---|---:|---|---|
 | Main renderer | `77` production TSX files | Docs `01`-`06`, cross-cut by doc `11` | Mixed automated and `Manual — executable` |
 | Standalone sigil preview | `1` TSX, `2` buttons | `AX-VIS-*` | Manual visual proof |
-| Main-renderer native/associated declarations | `596` across `63` files | File ledger below | Static declarations, not runtime rows: `439 button`, `59 input`, `10 select`, `11 textarea`, `10 a`, `12 form`, `31 label`, `19 summary` |
+| Main-renderer native/associated declarations | `597` across `63` files | File ledger below | Static declarations, not runtime rows: `442 button`, `58 input`, `10 select`, `11 textarea`, `10 a`, `16 form`, `31 label`, `19 summary` |
 | Desktop navigation | `4` primary views, `5` store overlays, `6` System destinations, `9` navigation actions | Destination ledger below | Mixed evidence |
 | Main harness HTTP | `136`: `123` public + `13` internal | `136/136` source shapes inventoried here and mapped across docs `01`-`09`; umbrella doc `07` | Static route mapping is complete; direct HTTP automation gaps remain explicit |
 | Webhook sidecar | `3` | `API-OPS-*`, `WHK-*`, `SEC-*` | Automated ingress plus manual integration |
@@ -212,9 +212,9 @@ update:install
 | Registry/Reach | `10` direct routes + `3` app-used delegated auth paths | `REG-*`, `RCH-*`, `DRF-*`, `OPS-*` | Generic `OPTIONS`, `/api/auth/*`, scheduled cleanup tracked separately |
 | Conduit | `10` concrete routes | `CON-*`, `DRF-002`, `OPS-*` | Worker evidence required |
 | MCP/proxy | `78` static definitions, `70` unique names | `MCP-*`, `WB-TOOL-*`, `WB-BHOST-*` | Dynamic upstream connector/Pi tools cannot be statically named |
-| Package scripts | `83` across `5` manifests | Doc `12`; manifest ledger below | Root `63`, Companion `1`, docs `9`, Workers `5` each |
-| CI/release workflows | `4` files, `11` jobs, `15` file/job labels | `PKG-CI-*`; doc `12`; exact block above | Static mapping; live hosted jobs remain manual/external evidence |
-| Configured test files | `253` | Doc `12`; runner ledger below | Inventory only: `228` root Vitest + `8` Node + `3` Worker + `14` XCTest |
+| Package scripts | `95` across `5` manifests | Doc `12`; manifest ledger below | Root `69`, Companion `1`, docs `9`, Workers `8` each |
+| CI/release workflows | `5` files, `12` jobs, `17` file/job labels | `PKG-CI-*`; doc `12`; exact block above | Static mapping; live hosted jobs remain manual/external evidence |
+| Configured test files | `299` | Doc `12`; runner ledger below | Inventory only: `274` root Vitest + `8` Node + `3` Worker + `14` XCTest |
 | iOS production UI | `38` App Swift + `1` Widget Swift; `53` App + `3` Widget views | `VM-IOS-001` through `VM-IOS-065` | `23/23` detected control-bearing App/Widget files are referenced; runtime device proof remains manual/external where stated |
 
 ## Reproducible method
@@ -681,7 +681,7 @@ Total: `78` definitions and `70` unique names because overlaps are intentional a
 
 ## Package script and automated-source ledger
 
-The root block earlier in this file lists all `63` root script names. The remaining `20` scripts are:
+The root block earlier in this file lists all `69` root script names. The remaining `20` scripts are:
 
 | Manifest | Count | Exact names | QA owner |
 |---|---:|---|---|
@@ -690,7 +690,7 @@ The root block earlier in this file lists all `63` root script names. The remain
 | `cloudflare/composio-broker/package.json` | 8 | `check`, `deploy:production`, `dry-run`, `preflight`, `preflight:test`, `test`, `types`, `types:check` | `SUITE-012` through `SUITE-014` plus protected Conduit deploy preflight |
 | `cloudflare/control-plane/package.json` | 8 | `check`, `deploy:production`, `dry-run`, `preflight`, `preflight:test`, `test`, `types`, `types:check` | `SUITE-009` through `SUITE-011` |
 
-Total package scripts are therefore `68 + 1 + 9 + 8 + 8 = 94`. The additional six entries are `registry:preflight`, `registry:preflight:test`, `registry:deploy`, and the Control Plane worker's `deploy:production`, `preflight`, and `preflight:test`.
+Total package scripts are therefore `69 + 1 + 9 + 8 + 8 = 95`. The additional six entries are `registry:preflight`, `registry:preflight:test`, `registry:deploy`, and the Control Plane worker's `deploy:production`, `preflight`, and `preflight:test`.
 
 The checker consumes the exact manifest-to-script mapping below. A generic script name documented under the wrong package does not satisfy the gate.
 
@@ -816,7 +816,7 @@ Configured runnable source inventory:
 | Node `--test` | 8 | desktop viewer, desktop workspace, package link, save file, server boot probe, single instance, update channel, updater coordinator | `SUITE-005`, `SUITE-006`; package/native cases |
 | Worker Vitest | 3 | `1` Conduit + `2` Registry/Reach | `SUITE-009` through `SUITE-014` |
 | XCTest | 14 | `188` `test*` methods | `SUITE-015`, `SUITE-016`; source inventory only when XCTest is unavailable |
-| **Total** | **296** | `271 + 8 + 3 + 14` | Inventory is not execution evidence |
+| **Total** | **299** | `274 + 8 + 3 + 14` | Inventory is not execution evidence |
 
 The root Vitest count intentionally excludes `.node-test.mjs`. Worker suites use their own configs. XCTest method count does not imply a pass on a host without full Xcode/XCTest.
 
@@ -864,10 +864,10 @@ The current source-reference audit finds `23/23` detected control-bearing App/Wi
 | `TRCOV-CLOSED-003` | Closed | Fifteen iOS files and many actions were only broadly mapped. | Doc `06` now has `VM-IOS-001` through `VM-IOS-065`; `23/23` detected control-bearing App/Widget files are referenced. |
 | `TRCOV-CLOSED-004` | Closed | Desktop Registry/Conduit clients used retired paths/token shapes. | Current clients use Account/Node/Reach paths and `hry_` tokens; docs `04` and `08` retain resolved regression cases. |
 | `TRCOV-CLOSED-006` | Closed | URL `.pathname` decoding and lexical main-module comparison could prevent the checker from running through paths containing spaces or symlinks. | Repository roots now use `fileURLToPath`; main-module detection compares decoded real paths. A CLI regression test executes through a spaced symlink with `--preserve-symlinks-main` and parses the emitted JSON. |
-| `TRCOV-CLOSED-007` | Closed | Generic names such as `build`, `dev`, and `test` could satisfy package-script coverage even when documented under the wrong manifest. | The JSON ledger above binds every one of 94 scripts to its exact manifest; the checker rejects missing and unexpected manifest/script pairs, with a focused misattribution regression test. |
+| `TRCOV-CLOSED-007` | Closed | Generic names such as `build`, `dev`, and `test` could satisfy package-script coverage even when documented under the wrong manifest. | The JSON ledger above binds every one of 95 scripts to its exact manifest; the checker rejects missing and unexpected manifest/script pairs, with a focused misattribution regression test. |
 
 ## Completion assertions
 
-- **Proven static parity:** `78/78` main-renderer TSX files mapped; `63/63` control-bearing main-renderer files mapped; `596` declarations counted; `136/136` main harness routes inventoried; `3/3` webhook routes; `47/47` Companion device shapes; `9/9` Companion control-plane shapes; `76/76` runtime inbound IPC channels; `10/10` preload event topics; `10/10` direct Registry/Reach routes plus `3/3` app-used delegated auth paths; `10/10` Conduit routes; `78/78` static MCP/proxy definitions; `94/94` package scripts; `5/5` workflow files and `12/12` jobs; `296` configured test files inventoried; `23/23` detected iOS control-bearing sources referenced.
-- **Not claimed as fully executed:** all 596 desktop declarations across runtime states and viewports; every iOS action on a signed physical device; signed installers and native permissions on every OS; real OAuth, Box, VPS, Registry/Reach, Conduit, Cloudflare, email, and release-repository flows.
+- **Proven static parity:** `78/78` main-renderer TSX files mapped; `63/63` control-bearing main-renderer files mapped; `597` declarations counted; `136/136` main harness routes inventoried; `3/3` webhook routes; `47/47` Companion device shapes; `9/9` Companion control-plane shapes; `76/76` runtime inbound IPC channels; `10/10` preload event topics; `10/10` direct Registry/Reach routes plus `3/3` app-used delegated auth paths; `10/10` Conduit routes; `78/78` static MCP/proxy definitions; `95/95` package scripts; `5/5` workflow files and `12/12` jobs; `296` configured test files inventoried; `23/23` detected iOS control-bearing sources referenced.
+- **Not claimed as fully executed:** all 597 desktop declarations across runtime states and viewports; every iOS action on a signed physical device; signed installers and native permissions on every OS; real OAuth, Box, VPS, Registry/Reach, Conduit, Cloudflare, email, and release-repository flows.
 - **Release rule:** every P0/P1 remains passing, manually evidenced, or explicitly `Blocked — external prerequisite`. Static mapping never upgrades a blocked/manual case to passing.
