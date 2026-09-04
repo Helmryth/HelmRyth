@@ -141,9 +141,14 @@ export function releaseBuilderConfig(baseConfigText, releaseRepository, options 
     const win = base.win;
     config.win = {
       ...win,
-      publisherName: [...windowsSigning.publisherName],
       signtoolOptions: {
         ...win.signtoolOptions,
+        // `publisherName` belongs to WindowsSigntoolConfiguration, not to
+        // WindowsConfiguration, and the latter is declared
+        // `additionalProperties: false` — so at the top level of `win` it is
+        // not merely ignored, it fails schema validation before any packaging
+        // work starts.
+        publisherName: [...windowsSigning.publisherName],
         certificateFile: windowsSigning.certificateFile,
         certificatePassword: windowsSigning.certificatePassword,
         signingHashAlgorithms: [...windowsSigning.signingHashAlgorithms],

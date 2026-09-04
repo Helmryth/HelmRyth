@@ -22,10 +22,15 @@ const DESTRUCTIVE = [
 
 // Not destructive, but exactly what you don't hand over unattended: a
 // bot reading your keys is quiet, permanent, and unrecoverable.
+// `[\\/]` rather than `/` throughout: a Windows command names these files with
+// backslashes, and a guard that only recognises the POSIX spelling silently
+// stops guarding on one of the three platforms this ships to. Verified before
+// the change — `type C:\\Users\\a\\.aws\\credentials` was NOT flagged while
+// `cat ~/.aws/credentials` was.
 const SENSITIVE = [
-  /(^|[\s/"'])\.env(\.|$|["'\s])/i,
-  /\.ssh\/|id_rsa|id_ed25519|authorized_keys/i,
-  /\.aws\/credentials|\.netrc|\.npmrc|\.pypirc|\.docker\/config\.json/i,
+  /(^|[\s\\/"'])\.env(\.|$|["'\s])/i,
+  /\.ssh[\\/]|id_rsa|id_ed25519|authorized_keys/i,
+  /\.aws[\\/]credentials|\.netrc|\.npmrc|\.pypirc|\.docker[\\/]config\.json/i,
   /security\s+find-(generic|internet)-password|\bkeychain\b/i,
   /\bcredentials?\.json\b|\bserviceaccount\b/i,
 ];
