@@ -168,10 +168,19 @@ describe("scripts a test can import", () => {
     // `electron-builder.yml`'s `afterPack: ./scripts/after-pack.mjs` is loaded
     // as a module rather than executed. So the line buys nothing and costs a
     // whole suite.
+    // Recursive on purpose. A flat read of scripts/ misses the twenty modules
+    // under scripts/film/, which are imported by other scripts and are exactly
+    // as importable by a test — the guard would have passed while covering
+    // none of them.
     const scripts = join(dirname(fileURLToPath(import.meta.url)));
-    const offenders = readdirSync(scripts)
-      .filter((name) => name.endsWith(".mjs") && !name.includes(".test."))
-      .filter((name) => readFileSync(join(scripts, name), "utf8").startsWith("#!"));
+    const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return walk(path);
+      return entry.name.endsWith(".mjs") && !entry.name.includes(".test.") ? [path] : [];
+    });
+    const offenders = walk(scripts)
+      .filter((path) => readFileSync(path, "utf8").startsWith("#!"))
+      .map((path) => path.slice(scripts.length + 1));
     expect(offenders).toEqual([]);
   });
 });
