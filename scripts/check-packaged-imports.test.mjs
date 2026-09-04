@@ -4,8 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { parse } from "yaml";
+
 import {
   bareSpecifiers,
+  excludedByManifest,
+  globToRegExp,
   includePatterns,
   DEVELOPMENT_ONLY_IMPORTS,
   isProvidedByRuntime,
@@ -169,5 +173,38 @@ describe("scripts a test can import", () => {
       .filter((name) => name.endsWith(".mjs") && !name.includes(".test."))
       .filter((name) => readFileSync(join(scripts, name), "utf8").startsWith("#!"));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("test modules and the packaging manifest", () => {
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+  it("expands the glob shapes the files list actually uses", () => {
+    expect(globToRegExp("electron/**/*.test.*").test("electron/a.test.mjs")).toBe(true);
+    expect(globToRegExp("electron/**/*.test.*").test("electron/deep/a.test.mjs")).toBe(true);
+    // The bug in one line: `.node-test.` contains no `.test.` substring.
+    expect(globToRegExp("electron/**/*.test.*").test("electron/a.node-test.mjs")).toBe(false);
+    expect(globToRegExp("electron/**/*.node-test.*").test("electron/a.node-test.mjs")).toBe(true);
+    // A single star must not cross a directory boundary.
+    expect(globToRegExp("electron/*.mjs").test("electron/deep/a.mjs")).toBe(false);
+  });
+
+  it("excludes every test module from the packaged app", () => {
+    // Nine `*.node-test.mjs` modules were being signed into the asar, because
+    // `!electron/**/*.test.*` cannot match them. Shipping a test module is not
+    // merely dead weight: it is code inside a signed bundle that nobody reviews
+    // as shipped code, and it drags its fixtures and assumptions along with it.
+    //
+    // The authority for "is this a test module" is the same pattern the
+    // packaged-import scan uses to skip them. Holding the manifest to that one
+    // definition is the point — a new naming shape has to be handled in both
+    // places, or this fails.
+    const manifest = parse(readFileSync(join(repoRoot, "electron-builder.yml"), "utf8"));
+    const stillShipped = readdirSync(join(repoRoot, "electron"))
+      .filter((name) => /\.(?:test|node-test|spec)\.[cm]?js$/.test(name))
+      .map((name) => `electron/${name}`)
+      .filter((name) => !excludedByManifest(manifest.files, name));
+
+    expect(stillShipped).toEqual([]);
   });
 });

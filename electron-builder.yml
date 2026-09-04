@@ -35,6 +35,12 @@ afterPack: ./scripts/after-pack.mjs
 files:
   - electron/**
   - "!electron/**/*.test.*"
+  # `*.test.*` does not match `*.node-test.mjs` — there is no `.test.`
+  # substring in that name — so nine test modules were being signed into
+  # the asar. Both shapes are excluded now, and a case in
+  # scripts/check-packaged-imports.test.mjs holds this list to the same
+  # definition of "test module" the packaged-import gate already uses.
+  - "!electron/**/*.node-test.*"
   - "!electron/resources/speech-helper"
   - "!electron/resources/speech-helper.swift"
   - "!electron/resources/speech-helper-Info.plist"
