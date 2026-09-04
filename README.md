@@ -184,15 +184,15 @@ HTTP/1.1 400 Bad Request
 
 It is the *combination* that is gated, so both fields have to be in the body — asking for the
 workbench alone is not the dangerous request and is answered `200`. Only a body that also carries
-`"acknowledgeLocalAuto":true` grants it (`server/index.ts:6266-6272`).
+`"acknowledgeLocalAuto":true` grants it (`server/index.ts:6291-6295`).
 
 **The origin gate is exact-authority.** A request carrying a *wrong* `Origin` is answered
-`403 forbidden: cross-origin request` (`server/index.ts:4203`), and `localhost` is not accepted as
+`403 forbidden: cross-origin request` (`server/index.ts:4213`), and `localhost` is not accepted as
 an alias for `127.0.0.1`.
 
 **The decision ledger outlives the run.** `GET /api/decisions` replays what you answered, newest
 last; `?limit=0` and `?limit=nope` are both refused with `400 limit must be a positive whole number`
-(`server/index.ts:7122`, `server/decision-log-wiring.test.ts`).
+(`server/index.ts:7148`, `server/decision-log-wiring.test.ts`).
 
 Then run the suite yourself:
 
