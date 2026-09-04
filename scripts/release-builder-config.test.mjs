@@ -1,5 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
+
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 
@@ -114,6 +116,36 @@ describe("release-only Electron Builder configuration", () => {
     expect(existsSync(directory)).toBe(false);
   });
 
+  it("generates a Windows config electron-builder's own schema accepts", () => {
+    // The bug this pins cost nothing at generation time and everything at
+    // package time: `publisherName` sat at the top of `win`, where
+    // WindowsConfiguration declares `additionalProperties: false`, so
+    // validateConfiguration threw before any packaging work began. A unit test
+    // asserting our own shape could not see that — the authority is
+    // electron-builder's scheme.json, so this reads it.
+    const fromHere = createRequire(import.meta.url);
+    const fromBuilder = createRequire(fromHere.resolve("electron-builder/package.json"));
+    const scheme = fromBuilder("app-builder-lib/scheme.json");
+
+    const release = releaseBuilderConfig(baseConfigText, "helmryth-labs/releases", {
+      target: "win",
+      windowsSigning: {
+        certificateFile: "C:/tmp/helmryth-release.pfx",
+        certificatePassword: "hunter2-not-a-real-secret",
+        publisherName: ["Helmryth, Inc."],
+        timeStampServer: "http://timestamp.example.test",
+        signingHashAlgorithms: ["sha256"],
+      },
+    });
+
+    const unknown = (definition, object) =>
+      Object.keys(object).filter((key) => !(key in scheme.definitions[definition].properties));
+
+    expect(scheme.definitions.WindowsConfiguration.additionalProperties).toBe(false);
+    expect(unknown("WindowsConfiguration", release.win)).toEqual([]);
+    expect(unknown("WindowsSigntoolConfiguration", release.win.signtoolOptions)).toEqual([]);
+  });
+
   it("injects Windows signing inputs only for official Windows releases", () => {
     const release = releaseBuilderConfig(baseConfigText, "helmryth-labs/releases", {
       target: "win",
@@ -130,7 +162,11 @@ describe("release-only Electron Builder configuration", () => {
       from: "/tmp/helmryth-service-config.json",
       to: MANAGED_SERVICE_CONFIG_NAME,
     });
-    expect(release.win.publisherName).toEqual(["Helmryth, Inc."]);
+    // Under signtoolOptions, not at the top of `win`: WindowsConfiguration is
+    // declared additionalProperties:false in electron-builder's schema, so the
+    // key is rejected there rather than ignored.
+    expect(release.win.publisherName).toBeUndefined();
+    expect(release.win.signtoolOptions.publisherName).toEqual(["Helmryth, Inc."]);
     expect(release.win.signtoolOptions).toMatchObject({
       certificateFile: "C:/tmp/helmryth-release.pfx",
       certificatePassword: "hunter2-not-a-real-secret",
