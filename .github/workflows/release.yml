@@ -59,6 +59,18 @@ jobs:
           echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Reject authored brand residue
         run: node scripts/check-brand-residue.mjs
+      # The two gates above import only Node builtins, so they run on a bare
+      # checkout. `release-builder-config.mjs` does not — it imports `yaml` —
+      # and without these three steps it dies with ERR_MODULE_NOT_FOUND before
+      # checking anything. Every platform job declares `needs: prepare`, so that
+      # took the whole release with it. The same three steps already appear in
+      # the mac, windows and linux jobs; this one was missing them.
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Require Helmryth release configuration
         env:
           HELMRYTH_RELEASE_REPO: ${{ vars.HELMRYTH_RELEASE_REPO }}
