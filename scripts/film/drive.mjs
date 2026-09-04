@@ -85,8 +85,17 @@ export function makeDriver(session) {
   return { pw, sleep, snapshot, findRef, clickNamed, click, type, press, chapter, evalJs, fillNamed };
 }
 
-/** The identity shown in every film. */
-export const IDENTITY = { name: "Divyam", email: "ada@example.com" };
+/** The identity shown in every film.
+ *
+ * A documentation-domain default, not a real address. This value is TYPED INTO
+ * the onboarding form during a shoot, so whatever it holds ends up legible in
+ * the recorded footage and in the loop cut from it — a real address committed
+ * here becomes a real address published in a video. Override it in the shell
+ * for a local shoot; the committed default stays harmless. */
+export const IDENTITY = {
+  name: process.env.HELMRYTH_FILM_NAME ?? "Ada",
+  email: process.env.HELMRYTH_FILM_EMAIL ?? "ada@example.com",
+};
 
 /** Complete or skip first-run setup so a scene starts in the workspace.
  *

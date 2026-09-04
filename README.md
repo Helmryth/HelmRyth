@@ -11,7 +11,7 @@ A gate in front of every consequential action. All of it on your machine.
 
 [Quick start](#quick-start) · [The films](#films) · [How it works](#how-it-works) · [Security](#security-posture)
 
-<sub>**3,023** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
+<sub>**3,034** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
 
 </div>
 
@@ -184,15 +184,15 @@ HTTP/1.1 400 Bad Request
 
 It is the *combination* that is gated, so both fields have to be in the body — asking for the
 workbench alone is not the dangerous request and is answered `200`. Only a body that also carries
-`"acknowledgeLocalAuto":true` grants it (`server/index.ts:6266-6272`).
+`"acknowledgeLocalAuto":true` grants it (`server/index.ts:6291-6295`).
 
 **The origin gate is exact-authority.** A request carrying a *wrong* `Origin` is answered
-`403 forbidden: cross-origin request` (`server/index.ts:4203`), and `localhost` is not accepted as
+`403 forbidden: cross-origin request` (`server/index.ts:4213`), and `localhost` is not accepted as
 an alias for `127.0.0.1`.
 
 **The decision ledger outlives the run.** `GET /api/decisions` replays what you answered, newest
 last; `?limit=0` and `?limit=nope` are both refused with `400 limit must be a positive whole number`
-(`server/index.ts:7122`, `server/decision-log-wiring.test.ts`).
+(`server/index.ts:7148`, `server/decision-log-wiring.test.ts`).
 
 Then run the suite yourself:
 
@@ -329,7 +329,7 @@ the documented census:
 
 | | |
 |---|---|
-| Tests passing | **3,023** across 274 files (19 skipped), plus **89** in seven child suites |
+| Tests passing | **3,034** across 274 files (19 skipped), plus **89** in seven child suites |
 | HTTP routes | **160** unique, each mapped in the traceability matrix |
 | Renderer controls | **597** declared across 63 files |
 | Runtime IPC channels | **76**, plus 10 preload event topics |

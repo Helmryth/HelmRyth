@@ -105,6 +105,18 @@ const IDENTITY_RULES = [
   ["old crew filename", retired("XGJ0ZWFtXC5zaWdpbHRlYW1cLmpzb25cYg==", "i")],
   ["old manifest format", retired("XGIoPzpvcGVubWF1c3xoZWxtcnl0aClcLnRlYW1cYg==", "i")],
   ["inherited palette lineage", retired("cGl4ZWxbLSBdc2FtcGxlZCBmcm9tIHRoZSByZWFsIEdyb2sgYXBwfFxbZGF0YS1za2luPVsiJ11taWRuaWdodFsiJ11cXQ==", "i")],
+  // Plaintext on purpose: unlike the rules above this names no retired
+  // identity, only the consumer mail providers a personal address sits on. It
+  // exists because scripts/film/drive.mjs once carried a real gmail address as
+  // the identity typed into the onboarding form during a shoot — so it was not
+  // only in the source, it was legible in the published film and in the loop
+  // cut from it. Test files are already exempt from identity rules, so this
+  // targets shipped source, which is where an address can escape into a build
+  // or a recording.
+  [
+    "personal contact address",
+    /\b[A-Za-z0-9._%+-]+@(?:gmail|googlemail|outlook|hotmail|live|yahoo|protonmail|proton|icloud|aol)\.[a-z]{2,}(?:\.[a-z]{2,})?\b/i,
+  ],
   ["previous-owner runtime destination", retired("KD86Z2l0aHViXC5jb218cmF3XC5naXRodWJ1c2VyY29udGVudFwuY29tKVwvbWlsaW5kLXNvbmlcYnxidXlcLnBvbGFyXC5zaFwvfHBvbGFyXC5zaFwvc3VwYSg/Om1hdXN8c2lnaWwpfFxic3VwYW1hdXNcYnxtaWxpbmRzb25pXGQqXC53b3JrZXJzXC5kZXZ8KD86RGV2ZWxvcGVyIElEIEFwcGxpY2F0aW9ufE1haW50YWluZXIpOlxzKk1pbGluZCBTb25p", "i")],
 ];
 
