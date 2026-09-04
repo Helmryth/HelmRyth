@@ -100,7 +100,7 @@ function reversibleImportResult(value: z.output<typeof reversibleImportSchema>):
   };
 }
 
-/** "Divyam Talwar" → "DT", "divyam" → "D", "you@x.dev" → "Y", unset → "?" */
+/** "Ada Lovelace" → "AL", "ada" → "A", "you@x.dev" → "Y", unset → "?" */
 function profileInitials(profile?: { name?: string; email?: string }): string {
   const name = profile?.name?.trim();
   if (name) {
