@@ -115,6 +115,28 @@ describe("brand residue gate scope", () => {
     expect(copyFindings("third_party/playwright-injected/src/roleUtils.ts", ['const role = "bot";'])).toEqual([]);
   });
 
+  it("catches a personal mail-provider address in shipped source", () => {
+    // The real instance this rule was written for: scripts/film/drive.mjs held
+    // a consumer gmail address as the identity TYPED INTO the onboarding form
+    // during a shoot, so it was legible in the published film and in the loop
+    // cut from it — not merely present in the source.
+    expect(identityFindings("scripts/film/drive.mjs", [
+      'export const IDENTITY = { name: "A", email: "someone@gmail.com" };',
+    ])).toMatchObject([{ label: "personal contact address" }]);
+
+    // Reserved documentation domains are what the other 85 addresses in this
+    // repository use, and a third-party author's address in a vendored licence
+    // is attribution rather than a leak. Neither may be flagged.
+    for (const allowed of [
+      'const a = "ada@example.com";',
+      'const b = "noreply@helmryth.test";',
+      'const c = "secret@conduit.example";',
+      'const d = "you@x.dev";',
+    ]) {
+      expect(identityFindings("scripts/film/drive.mjs", [allowed]), allowed).toEqual([]);
+    }
+  });
+
   it("still catches actual public legacy identity and previous-owner destinations", () => {
     expect(identityFindings("README.md", [retired("RG93bmxvYWQgT3Blbk1hdXNCb3QgdG9kYXk=")])).toMatchObject([
       { label: "old product name" },
