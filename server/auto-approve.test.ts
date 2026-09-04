@@ -52,8 +52,27 @@ describe("looksSensitive", () => {
   ]) {
     it(`stops: ${text}`, () => expect(looksSensitive(text)).toBe(true));
   }
+  // The same files as above, named the way a Windows command names them. Three
+  // of the five patterns matched only the POSIX spelling, so on Windows the
+  // guard did not fire at all for an AWS credential file, a Docker config or
+  // anything under .ssh that is not one of the key filenames it lists by name.
+  for (const text of [
+    String.raw`type C:\Users\ada\.aws\credentials`,
+    String.raw`type C:\Users\ada\.docker\config.json`,
+    String.raw`type C:\Users\ada\.ssh\config`,
+    String.raw`copy C:\Users\ada\.env.production D:\tmp`,
+  ]) {
+    it(`stops on a Windows path: ${text}`, () => expect(looksSensitive(text)).toBe(true));
+  }
+
   for (const text of ["cat README.md", "npm run env-check", "echo $PATH", "cat src/environment.ts"]) {
     it(`allows: ${text}`, () => expect(looksSensitive(text)).toBe(false));
+  }
+
+  // Widening the separator class must not start flagging ordinary text.
+  for (const text of [String.raw`type C:\repo\src\environment.ts`, String.raw`dir C:\repo\docs`]) {
+    it(`allows a Windows path with nothing sensitive in it: ${text}`, () =>
+      expect(looksSensitive(text)).toBe(false));
   }
 });
 
