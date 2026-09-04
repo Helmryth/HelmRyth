@@ -22,11 +22,17 @@ import { pathToFileURL } from "node:url";
 // The FLOOR, not an exact count. An exact count would catch the failure mode
 // too, but it would need editing on every PR that adds or removes a test —
 // so this keeps a small buffer below the most recently verified full run
-// (1091 registered tests, 2026-08). Adding tests never touches it; removing
+// (3043 registered tests, 2026-09). Adding tests never touches it; removing
 // a meaningful slice does. If the suite legitimately shrinks below this,
 // lower the number here in the same PR that removes the tests, so the change
 // is a visible, reviewed decision rather than a silent one.
-export const TEST_COUNT_FLOOR = 1070;
+//
+// The anchor has to move with the suite or the guard stops guarding. It was
+// last set against 1091 tests and the suite has since grown to 3043, which
+// left the floor at roughly a third of the real count — two thirds of the
+// suite could have vanished silently and this would still have passed. A
+// "small buffer" is only small relative to a current number.
+export const TEST_COUNT_FLOOR = 2980;
 
 const TARGET_FLAGS = ["--changed", "--related", "--shard", "--exclude", "--testNamePattern", "-t", "--project"];
 
