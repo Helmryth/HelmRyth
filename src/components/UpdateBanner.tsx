@@ -35,8 +35,22 @@ export function UpdateBanner() {
   // arrives. Latch the pressed button as busy on the same frame so it greys
   // out immediately; the incoming status clears the latch.
   const [pending, setPending] = useState<"download" | "install" | "check" | null>(null);
-  const status = s?.status;
-  useEffect(() => setPending(null), [status]);
+  // Keyed on the state OBJECT, not on `s.status`. The main process does not
+  // always answer with a different status: `update:check` re-broadcasts an
+  // identical `{ status: "error", message }` when there is no coordinator to
+  // run a check at all. With the status string as the dependency that answer
+  // looked like nothing happening, so the latch was never released — "Try
+  // again" became a permanently spinning, permanently disabled "Checking…",
+  // and "Later" went with it, since that is disabled while pending too. The
+  // only way out was the X, and dismissal is keyed `${status}:${version}`, so
+  // the card never came back.
+  //
+  // That path is not exotic: electron-builder.yml carries no `publish:` block,
+  // so no app-update.yml is packaged, `resolveUpdateChannel` fails closed with
+  // "not-provisioned", and the coordinator is null in every build this
+  // repository produces. Every broadcast delivers a fresh object, so identity
+  // is the signal that an answer arrived.
+  useEffect(() => setPending(null), [s]);
 
   if (!s || s.status === "idle" || s.status === "checking") return null;
   const key = `${s.status}:${s.version ?? ""}`;
