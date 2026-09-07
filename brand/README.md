@@ -40,3 +40,21 @@ The mark must read in one colour before it reads in two — use
 gradient, place it on a busy photograph, or set the wordmark in a different
 typeface. The wordmark is Atkinson Hyperlegible Next, the same face the product
 uses, chosen because legibility is a product principle rather than a style.
+
+## Raster exports
+
+GitHub accepts only PNG, GIF or JPG for avatars and social previews, so `png/`
+carries rendered copies. They are generated from the SVGs above — if the mark
+changes, regenerate rather than edit.
+
+| File | Use |
+|---|---|
+| `png/helmryth-avatar-1024.png` | Organisation and repository avatar. Full-bleed paper; GitHub rounds the corners itself. |
+| `png/helmryth-avatar-512.png` | Smaller avatar slots. |
+| `png/helmryth-avatar-256.png` | Anywhere a small square is wanted. |
+| `png/helmryth-social-1280x640.png` | Repository social preview — the card that renders when the repo is linked. |
+
+The avatar is full-bleed rather than the clipped octagon on purpose: GitHub masks
+avatars to a rounded square, and a transparent octagon inside that mask reads as a
+mistake. The mark sits well inside the circular safe area — its furthest point is
+403px from centre against a 512px radius — so nothing is lost to any crop.
