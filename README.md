@@ -368,7 +368,18 @@ kills the loop. They are cut by `scripts/film/loop.mjs` from the delivered maste
 - [Bring your own VPS](docs/byo-vps.md)
 - [QA traceability and execution evidence](docs/qa/)
 
+## Contributing
+
+Bug reports, questions and patches are all welcome.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to set up, what to run before opening a pull request, and the evidence a change is expected to carry
+- [Discussions](https://github.com/Helmryth/HelmRyth/discussions) — questions and early ideas, so the issue tracker stays for things that are broken
+- [SECURITY.md](SECURITY.md) — how to report a vulnerability privately. Please do not open a public issue for one
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — the behaviour expected of everyone taking part
+
 ## Legal and provenance
+
+Helmryth is released under the [Apache License 2.0](LICENSE).
 
 Attribution and third-party notices live in [NOTICE](NOTICE) and [third_party/](third_party/).
 Those records preserve upstream history and licensing; they are not marketing copy.
