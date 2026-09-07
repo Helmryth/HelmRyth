@@ -4,7 +4,7 @@ export const docsContentRoute = '/llms.mdx/docs';
 export const appName = 'Helmryth Docs';
 
 export const gitConfig = {
-  user: '<your-org>',
-  repo: 'helmryth',
+  user: 'Helmryth',
+  repo: 'HelmRyth',
   branch: 'main',
 };

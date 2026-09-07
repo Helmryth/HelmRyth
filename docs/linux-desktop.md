@@ -39,7 +39,7 @@ Requirements for building from source:
 - pnpm 10.33.0 (Corepack can install the version declared by the project)
 
 ```sh
-git clone https://github.com/<your-org>/helmryth.git
+git clone https://github.com/Helmryth/HelmRyth.git
 cd helmryth
 corepack enable
 pnpm install --frozen-lockfile

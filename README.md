@@ -245,6 +245,8 @@ which is why the setup step is a *scan* rather than a form.
 ### Run it from source
 
 ```bash
+git clone https://github.com/Helmryth/HelmRyth.git
+cd HelmRyth
 pnpm install
 
 # terminal 1 — the local control plane (defaults to :8799, webhooks on :8800)
