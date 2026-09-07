@@ -4,14 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
-    "zod": "4.4.3"
+    "zod": "4.5.4"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260825.1",
-    "@types/node": "^26.2.0",
+    "@cloudflare/workers-types": "5.20260904.1",
+    "@types/node": "^26.4.1",
     "typescript": "^5.8.3",
     "vitest": "^4.1.10",
-    "wrangler": "4.125.0"
+    "wrangler": "4.129.0"
   },
   "scripts": {
     "check": "pnpm types && tsc -p tsconfig.json && node --check scripts/deploy-preflight.mjs",
