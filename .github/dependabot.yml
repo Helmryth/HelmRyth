@@ -1,0 +1,79 @@
+# Dependency updates for every ecosystem this repository actually ships.
+#
+# The five npm manifests are the ones tracked on main: the desktop app at the
+# root, the documentation site, the two Cloudflare Workers, and the phone
+# companion. `apps/docs/.next` is a build artefact and is not listed.
+#
+# Grouping keeps the noise down: a lockfile refresh arrives as one pull request
+# per ecosystem rather than one per package, and majors stay separate so a
+# breaking bump is never mixed into a routine patch sweep.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00" }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /apps/docs
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /cloudflare/control-plane
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /cloudflare/composio-broker
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /companion
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Actions are pinned to commit SHAs in this repository. Dependabot is what
+  # moves those pins; without it a pinned action silently never gets a security
+  # fix.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00" }
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
