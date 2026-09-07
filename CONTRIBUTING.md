@@ -25,10 +25,16 @@ pnpm dev:desktop
 Run the relevant checks before handing off a change:
 
 ```bash
+pnpm check:brand
 pnpm typecheck
 pnpm test
 pnpm check:electron
+pnpm check:packaged
 ```
+
+These are the five the `typecheck + test` job runs, in the order it runs them,
+on macOS, Linux and Windows. Running a subset locally means finding out about
+the rest from a red pull request.
 
 For docs-only changes:
 

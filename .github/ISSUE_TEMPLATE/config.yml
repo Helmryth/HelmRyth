@@ -1,0 +1,17 @@
+# Routes the "New issue" chooser. Blank issues stay available: a report that
+# does not fit either form is still worth having, and forcing it into one
+# produces a worse report, not a better one.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Question or idea
+    url: https://github.com/Helmryth/HelmRyth/discussions
+    about: >-
+      Ask how something works, or float an idea before it becomes a proposal.
+      Discussions keep the issue tracker to things that are actually broken.
+
+  - name: Report a security vulnerability
+    url: https://github.com/Helmryth/HelmRyth/security/policy
+    about: >-
+      Do not open a public issue for a vulnerability. SECURITY.md explains how
+      to report one privately.

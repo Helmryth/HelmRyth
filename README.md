@@ -11,7 +11,7 @@ A gate in front of every consequential action. All of it on your machine.
 
 [Quick start](#quick-start) · [The films](#films) · [How it works](#how-it-works) · [Security](#security-posture)
 
-<sub>**3,034** tests green · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
+<sub>**3,054** tests, green on macOS, Linux and Windows · **160** routes · **597** UI controls declared across 63 files · connector catalog fetched **live**</sub>
 
 </div>
 
@@ -245,6 +245,8 @@ which is why the setup step is a *scan* rather than a form.
 ### Run it from source
 
 ```bash
+git clone https://github.com/Helmryth/HelmRyth.git
+cd HelmRyth
 pnpm install
 
 # terminal 1 — the local control plane (defaults to :8799, webhooks on :8800)
@@ -329,7 +331,7 @@ the documented census:
 
 | | |
 |---|---|
-| Tests passing | **3,034** across 274 files (19 skipped), plus **89** in seven child suites |
+| Tests passing | **3,054** registered across 274 files — 3,035 pass on macOS (19 POSIX-only skips), 3,045 on Linux (9) — plus **89** in seven child suites |
 | HTTP routes | **160** unique, each mapped in the traceability matrix |
 | Renderer controls | **597** declared across 63 files |
 | Runtime IPC channels | **76**, plus 10 preload event topics |
@@ -366,7 +368,18 @@ kills the loop. They are cut by `scripts/film/loop.mjs` from the delivered maste
 - [Bring your own VPS](docs/byo-vps.md)
 - [QA traceability and execution evidence](docs/qa/)
 
+## Contributing
+
+Bug reports, questions and patches are all welcome.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to set up, what to run before opening a pull request, and the evidence a change is expected to carry
+- [Discussions](https://github.com/Helmryth/HelmRyth/discussions) — questions and early ideas, so the issue tracker stays for things that are broken
+- [SECURITY.md](SECURITY.md) — how to report a vulnerability privately. Please do not open a public issue for one
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — the behaviour expected of everyone taking part
+
 ## Legal and provenance
+
+Helmryth is released under the [Apache License 2.0](LICENSE).
 
 Attribution and third-party notices live in [NOTICE](NOTICE) and [third_party/](third_party/).
 Those records preserve upstream history and licensing; they are not marketing copy.

@@ -104,3 +104,26 @@ Thumbs.db
 
 # --- Logs -------------------------------------------------------------------
 *.log
+
+# --- Deliberately removed, and kept out ------------------------------------
+# These paths were removed from this repository's history on purpose. They
+# still exist in working copies, and none of them were ignored, so a single
+# `git add -A` would put them straight back.
+#
+# ios/ExportOptions.plist carries an Apple Team ID that is not ours. It was
+# purged from every commit; without this line the next broad `add` re-commits
+# it. Signing configuration belongs in DEVELOPMENT_TEAM at build time, which
+# is what ios/AppStore/RELEASE.md already documents.
+ios/ExportOptions.plist
+
+# Internal planning and design scratch. Useful while working, not part of the
+# published product, and never carried in the public history.
+docs/plans/
+docs/superpowers/
+
+# Local agent configuration. Machine-specific and personal.
+.claude/
+
+# Written by a tool that resolved an unset path variable to the literal string
+# "undefined". Pure scratch; it has no business in a repository.
+undefined\\temp/
