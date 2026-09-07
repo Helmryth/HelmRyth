@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 80" role="img" aria-labelledby="t d">
+  <title id="t">Helmryth</title>
+  <desc id="d">The Helmryth mark beside the wordmark: a run line halted at a notch, with a hand-set arm seated in it.</desc>
+  <g transform="translate(-5.21 -17.58) scale(1.672)">
+    <path d="M7.9 42.5h17.8v5.1H7.9Z" fill="#167A78"/>
+    <path d="M37.2 42.5h18.9v5.1H37.2Z" fill="#167A78"/>
+    <path d="M26.5 46.2 43.6 14.8 51.2 17.5 33.7 46.2Z" fill="#C44F36"/>
+  </g>
+  <text x="117" y="62"
+        font-family="'Atkinson Hyperlegible Next Variable','Atkinson Hyperlegible Next','Segoe UI',system-ui,sans-serif"
+        font-size="34" font-weight="700" letter-spacing="5" fill="#273447">HELMRYTH</text>
+</svg>
