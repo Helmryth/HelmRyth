@@ -136,12 +136,20 @@ function scrubEvent(event: string): string {
       if (!line.startsWith("data:")) return line;
       const raw = line.slice(5).trimStart();
       if (!raw) return line;
+      let parsed;
       try {
-        return `data: ${JSON.stringify(scrub(JSON.parse(raw)))}`;
+        parsed = JSON.parse(raw);
       } catch {
-        // not JSON: pass it through rather than dropping it. A frame this
-        // code does not understand is still the harness's to send.
         return line;
+      }
+      try {
+        return `data: ${JSON.stringify(scrub(parsed))}`;
+      } catch {
+        // scrub() recurses, so a body nested deep enough throws RangeError
+        // where JSON.parse handles it fine. Passing the original line through
+        // sends exactly what the scrubber exists to withhold — the same class
+        // of issue the proxy's JSON response path already handles.
+        return "data: {}";
       }
     })
     .join(eol);
