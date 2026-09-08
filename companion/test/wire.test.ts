@@ -166,4 +166,17 @@ describe("createSseScrubber", () => {
   it("still handles a bare CR, which the spec also allows", () => {
     expect(createSseScrubber()('data: {"a":1,"resumeCursors":{}}\r\r')).toBe('data: {"a":1}\r\r');
   });
+
+  it("replaces unscrubable JSON data instead of leaking withheld keys", () => {
+    // scrub() recurses; a body nested a few thousand deep throws RangeError
+    // where JSON.parse handles it fine. A single try-catch around both treated
+    // that as "not JSON" and returned the original unscrubbed line — sending
+    // exactly what the scrubber exists to withhold.
+    let json = '{"resumeCursors":{"ghost":"leak-me"}}';
+    for (let i = 0; i < 12_000; i++) json = `{"n":${json}}`;
+    const out = createSseScrubber()(`data: ${json}\n\n`);
+    expect(out).not.toContain("resumeCursors");
+    expect(out).not.toContain("leak-me");
+    expect(out).toBe("data: {}\n\n");
+  });
 });
