@@ -53,7 +53,7 @@ const KEY_PREFIXES: RegExp[] = [
   /\bAIza[0-9A-Za-z_-]{30,}/g, // google api key
   /\bnpm_[A-Za-z0-9]{20,}/g, // npm
   /\bglpat-[A-Za-z0-9_-]{20,}/g, // gitlab personal access token
-  /\bpypi-[A-Za-z0-9_-]{16,}/g, // pypi api token
+  /\bpypi-[A-Za-z0-9_-]{48,}/g, // pypi api token (macaroon payload)
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, // jwt
 ];
 const BEARER = /(\bBearer\s+)([A-Za-z0-9._~+/=-]{12,})/g;

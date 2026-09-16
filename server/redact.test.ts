@@ -169,7 +169,7 @@ describe("redactSecretsInText", () => {
       [`google ${"AIza" + "SyA-"}${alpha.slice(0, 32)}`, /AIza/],
       [`npm ${"npm" + "_"}${alpha}`, /npm_[a-z]/],
       [`gitlab ${"glpat" + "-"}${alpha}`, /glpat-[a-z]/],
-      [`pypi ${"pypi" + "-"}${alpha.slice(0, 24)}`, /pypi-[a-z]/],
+      [`pypi ${"pypi" + "-"}${alpha}${alpha}`, /pypi-[a-z]/],
     ];
     for (const [input, leak] of cases) {
       const out = redactSecretsInText(input);
@@ -218,6 +218,10 @@ describe("redactSecretsInText", () => {
       "const token = await getToken(); // fetches later",
       "password: (leave blank to keep the current one)",
       "Bearer tokens are sent in the Authorization header",
+      "pypi-publishing-workflow",
+      "pypi-mirror-configuration",
+      "pypi-upload-action-v1",
+      "pypi-trusted-publisher-github-action-config",
       "sk-8", // too short to be a key
     ]) {
       expect(redactSecretsInText(s), s).toBe(s);
