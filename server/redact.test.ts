@@ -218,6 +218,9 @@ describe("redactSecretsInText", () => {
       "const token = await getToken(); // fetches later",
       "password: (leave blank to keep the current one)",
       "Bearer tokens are sent in the Authorization header",
+      "box_shadow_none",
+      "box_model_border",
+      "box_sizing_content",
       "sk-8", // too short to be a key
     ]) {
       expect(redactSecretsInText(s), s).toBe(s);

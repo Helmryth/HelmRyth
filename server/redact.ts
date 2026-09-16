@@ -52,7 +52,7 @@ const KEY_PREFIXES: RegExp[] = [
   /\bAKIA[0-9A-Z]{16}\b/g, // aws access key id
   /\bAIza[0-9A-Za-z_-]{30,}/g, // google api key
   /\bnpm_[A-Za-z0-9]{20,}/g, // npm
-  /\bbox_[a-z]+_[A-Za-z0-9_-]{4,}/g, // ascii.dev box api token
+  /\bbox_[A-Za-z0-9_-]{16,}/g, // ascii.dev box api token
   /\bwhsec_[A-Za-z0-9_-]{20,}/g, // helmryth webhook secret
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, // jwt
 ];
